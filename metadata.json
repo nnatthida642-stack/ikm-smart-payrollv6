@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Remix: Thai Timesheet \u0026 OT Calculator",
+  "description": "ระบบบันทึกและคำนวณค่าโอที (OT) ตามกฎหมายแรงงานไทยและกฎเกณฑ์กำหนดพิเศษ รองรับกรณีพนักงานรายวัน/รายเดือน, Flat rate 12 ชั่วโมง, กะดึกหลังเที่ยงคืน-ตี 5, และการรายงานและส่งออกข้อมูลครบครัน",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
