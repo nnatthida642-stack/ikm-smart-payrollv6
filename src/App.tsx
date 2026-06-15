@@ -823,7 +823,7 @@ function EmployeePasscodeLock({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (passcode === '43210344') {
+    if (passcode === '4144284312') {
       onUnlock();
       setError('');
     } else {
