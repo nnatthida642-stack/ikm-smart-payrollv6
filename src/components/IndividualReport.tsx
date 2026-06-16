@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import { Employee, TimesheetEntry, SystemSettings, Holiday } from '../types';
 import { 
   Users, Calendar, Clock, Filter, Printer, Download, Save,
-  Search, FileSpreadsheet, ChevronRight, CheckCircle, Info, ArrowRight, UserCheck, RefreshCw, Plus, Check, Database, Trash2
+  Search, FileSpreadsheet, ChevronRight, CheckCircle, Info, ArrowRight, UserCheck, RefreshCw, Plus, Check, Database, Trash2,
+  Lock
 } from 'lucide-react';
 import { calculateEntryOT, formatThaiDate } from '../utils/calculator';
 import { dbFetchSupplements, dbSaveSupplements } from '../lib/supabaseClient';
@@ -41,6 +42,81 @@ const getThaiDayName = (enDay: string) => {
   return mapping[enDay] || enDay;
 };
 
+function SubTabPasscodeLock({ 
+  onUnlock, 
+  isDark,
+  title = "ระบบคำนวณรายได้ทั้งหมดทั้งเดือนได้รับการคุ้มครองสิทธิ",
+  description = "กรุณาใส่รหัสผ่านเพื่อเข้าสู่รายงานระเบียนเงินรายเดือนและการคำนวณเบิกจ่ายพนักงาน"
+}: { 
+  onUnlock: () => void; 
+  isDark: boolean;
+  title?: string;
+  description?: string;
+}) {
+  const [passcode, setPasscode] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passcode === '4144284312') {
+      onUnlock();
+      setError('');
+    } else {
+      setError('❌ รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง');
+    }
+  };
+
+  return (
+    <div className="flex justify-center items-center py-16 px-4 animate-fade-in">
+      <div className={`w-full max-w-md p-8 rounded-lg border shadow-2xl transition-all duration-200 ${
+        isDark ? 'bg-[#0D0D0D] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'
+      }`}>
+        <div className="flex flex-col items-center text-center space-y-4">
+          <div className="p-4 bg-amber-500/10 text-[#D4AF37] rounded-full">
+            <Lock className="w-8 h-8 animate-pulse" />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold tracking-tight uppercase font-sans text-[#D4AF37]">{title}</h2>
+            <p className="text-[11px] text-gray-500 mt-2 font-sans">
+              {description}
+            </p>
+          </div>
+          
+          <form onSubmit={handleSubmit} className="w-full space-y-4 pt-4">
+            <div className="space-y-1 text-left">
+              <label className="text-[10px] uppercase font-bold tracking-wider text-gray-400 font-sans">ป้อนรหัสคีย์ลับพนักงาน (Passcode)</label>
+              <input
+                type="password"
+                value={passcode}
+                onChange={(e) => {
+                  setPasscode(e.target.value);
+                  if (error) setError('');
+                }}
+                placeholder="••••••••"
+                className={`w-full px-3 py-2 text-sm rounded bg-black/10 border font-mono ${
+                  isDark ? 'border-white/10 text-white focus:border-amber-500' : 'border-slate-300 text-slate-800 focus:border-[#D4AF37]'
+                } focus:outline-hidden`}
+              />
+              {error && (
+                <p className="text-red-500 text-[11px] mt-1 font-bold font-sans">
+                  {error}
+                </p>
+              )}
+            </div>
+            
+            <button
+              type="submit"
+              className="w-full bg-[#D4AF37] hover:bg-[#Bfa030] text-black font-extrabold text-xs uppercase tracking-wider py-2.5 rounded-sm transition-all active:scale-[0.98] cursor-pointer font-sans"
+            >
+              ตรวจสอบรหัสผ่าน / UNLOCK SYSTEM
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function IndividualReport({ 
   employees, 
   entries, 
@@ -53,6 +129,7 @@ export default function IndividualReport({
 }: IndividualReportProps) {
   // Navigation tabs: "master" (aggregate overview) or "drilldown" (IKM styled monthly timesheet)
   const [activeSubTab, setActiveSubTab] = useState<'master' | 'drilldown' | 'daily-breakdown'>('drilldown');
+  const [isSubTabsUnlocked, setIsSubTabsUnlocked] = useState<boolean>(false);
 
   // Configured selected employee for drill-down
   const [selectedEmpName, setSelectedEmpName] = useState<string>('');
@@ -1466,7 +1543,31 @@ export default function IndividualReport({
 
       {/* 2. TAB VIEW: MASTER AGGREGATE SCREEN */}
       {activeSubTab === 'master' && (
-        <div className={`rounded-sm border ${bgCard} overflow-hidden print:hidden`}>
+        !isSubTabsUnlocked ? (
+          <SubTabPasscodeLock
+            onUnlock={() => setIsSubTabsUnlocked(true)}
+            isDark={isDark}
+            title="ระบบประเมินกำลังความถี่สะสมรายสัญญาได้รับการคุ้มครองสิทธิ"
+            description="กรุณาใส่รหัสผ่านเพื่อเข้าสู่รายงานตารางรวมกำลังแรงงานของพนักงานทุกคน"
+          />
+        ) : (
+          <div className="space-y-4">
+            <div className={`p-4 rounded-sm border flex items-center justify-between transition-all duration-200 print:hidden ${
+              isDark ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+            }`}>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-xs font-bold font-sans">✓ สิทธิพนักงานเปิดเข้าถึงตารางรวมกำลังแรงงาน (Total Staff Matrix) เรียบร้อย (Unlocked)</span>
+              </div>
+              <button
+                onClick={() => setIsSubTabsUnlocked(false)}
+                className="bg-red-500 hover:bg-red-600 text-white font-extrabold text-[10px] uppercase tracking-widest px-3 py-1.5 rounded-sm cursor-pointer transition-all active:scale-[0.98] font-sans"
+              >
+                ล็อคระบบความปลอดภัย / LOCK
+              </button>
+            </div>
+
+            <div className={`rounded-sm border ${bgCard} overflow-hidden print:hidden`}>
           <div className="p-4 border-b border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-black/5">
             <div>
               <h3 className="text-xs font-bold uppercase tracking-widest text-[#D4AF37]">
@@ -1567,6 +1668,8 @@ export default function IndividualReport({
             </table>
           </div>
         </div>
+          </div>
+        )
       )}
 
       {/* 3. TAB VIEW: DRILLDOWN (IKM TESTING TIME SHEET BRAND SPECIFIC) */}
@@ -2325,7 +2428,31 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
 
       {/* 5. TAB VIEW: DAILY EARNINGS BREAKDOWN */}
       {activeSubTab === 'daily-breakdown' && (
-        <div className="space-y-4">
+        !isSubTabsUnlocked ? (
+          <SubTabPasscodeLock
+            onUnlock={() => setIsSubTabsUnlocked(true)}
+            isDark={isDark}
+            title="ระบบวิเคราะห์ผลประโยชน์รายวันได้รับการคุ้มครองสิทธิ"
+            description="กรุณาใส่รหัสผ่านเพื่อเข้าสู่รายงานเจาะลึกรายรับรายวันของพนักงานทุกคน"
+          />
+        ) : (
+          <div className="space-y-4 font-sans animate-fade-in">
+            <div className={`p-4 rounded-sm border flex items-center justify-between transition-all duration-200 print:hidden ${
+              isDark ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+            }`}>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-xs font-bold font-sans">✓ สิทธิพนักงานเปิดเข้าถึงเจาะลึกรายรับรายวัน (Daily Earnings) เรียบร้อย (Unlocked)</span>
+              </div>
+              <button
+                onClick={() => setIsSubTabsUnlocked(false)}
+                className="bg-red-500 hover:bg-red-600 text-white font-extrabold text-[10px] uppercase tracking-widest px-3 py-1.5 rounded-sm cursor-pointer transition-all active:scale-[0.98] font-sans"
+              >
+                ล็อคระบบความปลอดภัย / LOCK
+              </button>
+            </div>
+
+            <div className="space-y-4">
           
           {/* Action Header controls */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-2 bg-black/10 p-4 border rounded border-white/5 print:hidden">
@@ -2723,6 +2850,8 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
 
           </div>
         </div>
+          </div>
+        )
       )}
 
       {/* 4. HIGH FIDELITY MULTI-EMPLOYEE BATCH PRINT / SINGLE VIEW PORTRAIT OVERLAY FOR A4 PRINTING */}
