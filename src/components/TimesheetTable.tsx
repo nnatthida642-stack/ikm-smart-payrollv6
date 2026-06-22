@@ -116,6 +116,7 @@ export default function TimesheetTable({
     timeOut: '17:00',
     lunchDeduct: 1,
     lunchOT: 0,
+    customerHolidayFlag: 0,
     flatRate: false,
     remark: ''
   });
@@ -185,7 +186,8 @@ export default function TimesheetTable({
       holidays,
       newEntry.project || '',
       matchedEmp?.workScheduleType,
-      matchedEmp?.position
+      matchedEmp?.position,
+      newEntry.customerHolidayFlag
     );
 
     const entry: TimesheetEntry = {
@@ -197,6 +199,7 @@ export default function TimesheetTable({
       timeOut: newEntry.timeOut,
       lunchDeduct: newEntry.lunchDeduct ?? 1,
       lunchOT: newEntry.lunchOT ?? 0,
+      customerHolidayFlag: newEntry.customerHolidayFlag ?? 0,
       flatRate: isFlat,
       normalHours: calc.normalHours,
       ot15Hours: calc.ot15Hours,
@@ -246,7 +249,8 @@ export default function TimesheetTable({
       holidays,
       editingEntry.project || '',
       matchedEmp?.workScheduleType,
-      matchedEmp?.position
+      matchedEmp?.position,
+      editingEntry.customerHolidayFlag
     );
 
     const finalUpdate: Partial<TimesheetEntry> = {
@@ -758,7 +762,7 @@ export default function TimesheetTable({
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-3">
             <div className="space-y-1 md:col-span-2">
               <label className="text-[9px] uppercase tracking-widest font-bold text-gray-400 block">เลือกพนักงาน (Employee)</label>
               <select
@@ -843,6 +847,23 @@ export default function TimesheetTable({
                 <span className="text-[10px] text-red-400 ml-1.5 font-bold">1 (โอที 1.5)</span>
               </div>
             </div>
+
+            {/* Customer Holiday Checkbox */}
+            <div className="space-y-1 flex flex-col justify-center">
+              <label className="text-[9px] uppercase tracking-widest font-bold text-[#D4AF37] block text-amber-500!" title="เลือกเมื่อทำงานในวันหยุดลูกค้า (คิดเวลาทำงานและ OT เรทวันหยุด)">
+                วันหยุดลูกค้า
+              </label>
+              <div className="flex items-center mt-1.5">
+                <input
+                  id="add-entry-customer-holiday-checkbox"
+                  type="checkbox"
+                  checked={newEntry.customerHolidayFlag === 1}
+                  onChange={(e) => setNewEntry({ ...newEntry, customerHolidayFlag: e.target.checked ? 1 : 0 })}
+                  className="w-4 h-4 text-amber-500 bg-[#141414] border-white/10 rounded-sm focus:ring-0 cursor-pointer"
+                />
+                <span className="text-[10px] text-amber-400 ml-1.5 font-bold">วันทำงานในวันหยุด (x2.0 / x3.0)</span>
+              </div>
+            </div>
           </div>
 
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-4 border-t border-white/10">
@@ -908,6 +929,7 @@ export default function TimesheetTable({
                 <th className="py-2.5 px-2 w-20 border-r border-[#bdc1c6] dark:border-[#2d2f34] text-center font-bold">เวลาเข้า</th>
                 <th className="py-2.5 px-2 w-20 border-r border-[#bdc1c6] dark:border-[#2d2f34] text-center font-bold">เวลาออก</th>
                 <th className="py-2.5 px-3 text-center w-20 border-r border-[#bdc1c6] dark:border-[#2d2f34] font-bold">คีย์(ช่วงพักคีย์ 1)</th>
+                <th className="py-2.5 px-3 text-center w-24 border-r border-[#bdc1c6] dark:border-[#2d2f34] font-bold text-amber-600 dark:text-amber-400">วันหยุดลูกค้า</th>
                 <th className="py-2.5 px-3 text-right bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border-r border-[#bdc1c6] dark:border-[#2d2f34] font-bold">Normal</th>
                 <th className="py-2.5 px-3 text-right bg-amber-50 dark:bg-amber-950/25 text-amber-600 dark:text-[#D4AF37] border-r border-[#bdc1c6] dark:border-[#2d2f34] font-bold">OT 1.5</th>
                 <th className="py-2.5 px-3 text-right bg-rose-50 dark:bg-red-950/25 text-rose-600 dark:text-red-400 border-r border-[#bdc1c6] dark:border-[#2d2f34] font-bold">OT 2.0</th>
@@ -996,6 +1018,14 @@ export default function TimesheetTable({
                             หยุดนักขัตฯ
                           </span>
                         )}
+                        {e.customerHolidayFlag === 1 && (
+                          <span 
+                            className="block text-[8px] bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/30 px-1 rounded-sm mt-0.5 text-center font-bold animate-pulse" 
+                            title="วันหยุดลูกค้า"
+                          >
+                            หยุดลูกค้า
+                          </span>
+                        )}
                       </td>
 
                       {/* Project */}
@@ -1063,6 +1093,32 @@ export default function TimesheetTable({
                             e.lunchOT === 1 ? (
                               <span className="bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-450 font-bold px-2 py-0.5 rounded text-[9px] border border-red-200 dark:border-red-900/30">
                                 ช่อง G คีย์ 1 (OT)
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 dark:text-gray-650 text-[10px]">-</span>
+                            )
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Customer Holiday Checkbox Column */}
+                      <td className={sheetStyles.tdCell}>
+                        <div className="flex items-center justify-center">
+                          {isEditing ? (
+                            <div className="flex items-center justify-center gap-1">
+                              <input
+                                id={`edit-customer-holiday-${e.id}`}
+                                type="checkbox"
+                                checked={editingEntry.customerHolidayFlag === 1}
+                                onChange={(ev) => setEditingEntry({ ...editingEntry, customerHolidayFlag: ev.target.checked ? 1 : 0 })}
+                                className="w-3.5 h-3.5 text-amber-500 rounded-sm focus:ring-0 cursor-pointer"
+                              />
+                               <span className="text-[9px] text-amber-700 dark:text-amber-400 font-bold">หยุดลูกค้า</span>
+                            </div>
+                          ) : (
+                            e.customerHolidayFlag === 1 ? (
+                              <span className="bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 font-bold px-2 py-0.5 rounded text-[9px] border border-amber-200 dark:border-amber-900/30">
+                                วันหยุดลูกค้า
                               </span>
                             ) : (
                               <span className="text-slate-400 dark:text-gray-650 text-[10px]">-</span>

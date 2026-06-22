@@ -361,6 +361,7 @@ export async function dbFetchTimesheets() {
         timeOut: item.TimeOut || '17:00',
         lunchDeduct: Number(item.LunchDeduct ?? 1),
         lunchOT: Number(item.LunchOT ?? 0),
+        customerHolidayFlag: Number(item.Customer_Holiday_Flag ?? item.customer_holiday_flag ?? 0),
         flatRate: false, // will match with employee profiles dynamically
         normalHours: Number(item.NormalHours || 0),
         ot15Hours: Number(item.OT15Hours || 0),
@@ -394,6 +395,7 @@ export async function dbUpsertTimesheet(entry: any) {
       TimeOut: entry.timeOut,
       LunchDeduct: Number(entry.lunchDeduct ?? 1),
       LunchOT: Number(entry.lunchOT ?? 0),
+      Customer_Holiday_Flag: Number(entry.customerHolidayFlag ?? 0),
       NormalHours: parseFloat(entry.normalHours || 0),
       OT15Hours: parseFloat(entry.ot15Hours || 0),
       OT20Hours: parseFloat(entry.ot20Hours || 0),
@@ -406,12 +408,24 @@ export async function dbUpsertTimesheet(entry: any) {
       dbPayload.ID = entry.id;
     }
 
-    // If ID is valid UUID, we use it for upsert, else omit to let Postgres generate UUID
     const { error } = await supabase
       .from(tableName)
       .upsert(dbPayload, { onConflict: 'ID' });
 
-    if (error) throw error;
+    if (error) {
+      const errMsg = error.message || '';
+      const isColErr = errMsg.toLowerCase().includes('customer_holiday_flag') || error.code === '42703';
+      if (isColErr) {
+        console.warn('⚠️ Omit Customer_Holiday_Flag due to missing column in remote TIMESHEET table');
+        const { Customer_Holiday_Flag, ...stripped } = dbPayload;
+        const { error: retryError } = await supabase
+          .from(tableName)
+          .upsert(stripped, { onConflict: 'ID' });
+        if (retryError) throw retryError;
+        return true;
+      }
+      throw error;
+    }
     return true;
   } catch (err: any) {
     const errMsg = err?.message || '';
@@ -468,6 +482,7 @@ export async function dbBulkInsertTimesheets(entries: any[]) {
         TimeOut: entry.timeOut,
         LunchDeduct: Number(entry.lunchDeduct ?? 1),
         LunchOT: Number(entry.lunchOT ?? 0),
+        Customer_Holiday_Flag: Number(entry.customerHolidayFlag ?? 0),
         NormalHours: parseFloat(entry.normalHours || 0),
         OT15Hours: parseFloat(entry.ot15Hours || 0),
         OT20Hours: parseFloat(entry.ot20Hours || 0),
@@ -485,7 +500,20 @@ export async function dbBulkInsertTimesheets(entries: any[]) {
       .from(tableName)
       .upsert(dbPayloads, { onConflict: 'ID' });
 
-    if (error) throw error;
+    if (error) {
+      const errMsg = error.message || '';
+      const isColErr = errMsg.toLowerCase().includes('customer_holiday_flag') || error.code === '42703';
+      if (isColErr) {
+        console.warn('⚠️ Omit Customer_Holiday_Flag in bulk insert due to missing column in remote TIMESHEET table');
+        const strippedPayloads = dbPayloads.map(({ Customer_Holiday_Flag, ...rest }) => rest);
+        const { error: retryError } = await supabase
+          .from(tableName)
+          .upsert(strippedPayloads, { onConflict: 'ID' });
+        if (retryError) throw retryError;
+        return true;
+      }
+      throw error;
+    }
     return true;
   } catch (err: any) {
     const errMsg = err?.message || '';

@@ -81,7 +81,8 @@ export function calculateEntryOT(
   holidays: Holiday[],
   projectName?: string,
   workScheduleType?: string,
-  position?: string
+  position?: string,
+  customerHolidayFlag?: number
 ): CalculationResult {
   if (!dateStr || !timeInStr || !timeOutStr) {
     return { normalHours: 0, ot15Hours: 0, ot20Hours: 0, ot30Hours: 0, totalHours: 0 };
@@ -119,6 +120,7 @@ export function calculateEntryOT(
   const isSunday = dayOfWeek === 0;
   const isSaturday = dayOfWeek === 6;
   const isOffshore = projectName ? projectName.toLowerCase().includes('offshore') : false;
+  const isHolidayDay = isPubHoliday || isSunday || customerHolidayFlag === 1;
 
   // New strict rule: If project is Offshore, it has fixed daily rate, OT is never calculated or shown
   if (isOffshore) {
@@ -157,7 +159,7 @@ export function calculateEntryOT(
     (position && position.toLowerCase().includes('daily'));
 
   // 2. Holiday or Sunday calculation rules (bypassed if offshore)
-  if ((isPubHoliday || isSunday) && !isOffshore) {
+  if (isHolidayDay && !isOffshore) {
     // Normal hours are 0 for holidays, but they do work and get holiday pay rates.
     // Under standard Thai labor law:
     // First 8 hours on Sunday / Public Holiday are paid as OT 2.0 (for daily workers) or OT 1.0 (for monthly)
@@ -293,13 +295,14 @@ export function rebalanceTimesheetEntries(
     const pos = employee?.position;
 
     // Daily normal limit based on the calendar day status
+    const hasCustomerHoliday = dayEntries.some(e => e.customerHolidayFlag === 1);
     const { check: isPubHoliday } = isHoliday(firstEntry.date, holidays);
     const dayOfWeek = getDayOfWeek(firstEntry.date);
     const isSunday = dayOfWeek === 0;
     const isSaturday = dayOfWeek === 6;
 
     let maxNormalHoursAllowed = 8.0;
-    if (isPubHoliday || isSunday) {
+    if (isPubHoliday || isSunday || hasCustomerHoliday) {
       maxNormalHoursAllowed = 0.0;
     } else if (isSaturday) {
       const isDailyWorker = workType === 'daily_worker' || (pos && pos.toLowerCase().includes('daily'));
@@ -321,7 +324,8 @@ export function rebalanceTimesheetEntries(
         holidays,
         entry.project,
         workType,
-        pos
+        pos,
+        entry.customerHolidayFlag
       );
 
       let normal = calc.normalHours;
@@ -353,7 +357,7 @@ export function rebalanceTimesheetEntries(
       }
 
       // Rebalance Sunday/Holiday OT 2.0 / OT 3.0 (First 8 hours OT 2.0, excess OT 3.0)
-      if (isPubHoliday || isSunday) {
+      if (isPubHoliday || isSunday || hasCustomerHoliday) {
         const maxOt20Allowed = 8.0;
         const availableOt20 = Math.max(0, maxOt20Allowed - usedOt20Hours);
         if (ot20 > availableOt20) {

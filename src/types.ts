@@ -33,6 +33,7 @@ export interface TimesheetEntry {
   timeOut: string; // e.g., "17:00" or "17:00"
   lunchDeduct: number; // 0 or 1, whether to deduct 1 hr lunch/break
   lunchOT: number; // G-column: 1 if worked during lunch, 0 otherwise
+  customerHolidayFlag?: number; // 1 if customer holiday, 0 or undefined otherwise
   flatRate: boolean; // True if works flat 12 hrs shift
   normalHours: number;
   ot15Hours: number;

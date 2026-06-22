@@ -43,6 +43,7 @@ create table if not exists public."TIMESHEET" (
     "TimeOut" text default '17:00',
     "LunchDeduct" integer default 1,                        -- 1: deduct 1 hr lunch, 0: no deduct
     "LunchOT" integer default 0,                            -- 1: worked through lunch (earns extra 1hr OT)
+    "Customer_Holiday_Flag" integer default 0,              -- 1: customer holiday, 0: normal day
     "NormalHours" numeric(5, 2) default 0.00,               -- Computed normal hours worked
     "OT15Hours" numeric(5, 2) default 0.00,                 -- Computed OT 1.5 rate hours
     "OT20Hours" numeric(5, 2) default 0.00,                 -- Computed OT 2.0 rate hours (Holiday normal)

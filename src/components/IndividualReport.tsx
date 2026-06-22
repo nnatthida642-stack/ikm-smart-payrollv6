@@ -460,7 +460,8 @@ export default function IndividualReport({
           holidays,
           updated.project || projectInput || '',
           activeEmployee?.workScheduleType,
-          activeEmployee?.position
+          activeEmployee?.position,
+          updated.customerHolidayFlag
         );
         updated.normalHours = cal.normalHours;
         updated.ot15Hours = cal.ot15Hours;
