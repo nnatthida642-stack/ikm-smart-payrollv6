@@ -1369,10 +1369,12 @@ export default function IndividualReport({
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setActiveSubTab('drilldown')}
-              className={`text-xs font-bold px-4 py-2 rounded-sm transition-all cursor-pointer ${
+              className={`text-xs font-bold px-4 py-2.5 rounded-sm transition-all cursor-pointer ${
                 activeSubTab === 'drilldown'
-                  ? 'bg-[#D4AF37] text-black shadow-sm'
-                  : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/5'
+                  ? 'bg-[#D4AF37] text-black shadow-md border border-[#D4AF37] translate-y-[-1px]'
+                  : isDark 
+                    ? 'bg-[#1C1C1E] text-gray-300 hover:text-white hover:bg-[#2C2C2E] border border-white/10'
+                    : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200 border border-slate-200'
               }`}
             >
               🗓️ ปูมรายวันเดี่ยว (IKM Time Sheet)
@@ -1380,20 +1382,24 @@ export default function IndividualReport({
             <button
               id="subtab-daily-breakdown"
               onClick={() => setActiveSubTab('daily-breakdown')}
-              className={`text-xs font-bold px-4 py-2 rounded-sm transition-all cursor-pointer ${
+              className={`text-xs font-bold px-4 py-2.5 rounded-sm transition-all cursor-pointer ${
                 activeSubTab === 'daily-breakdown'
-                  ? 'bg-[#D4AF37] text-black shadow-sm'
-                  : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/5'
+                  ? 'bg-[#D4AF37] text-black shadow-md border border-[#D4AF37] translate-y-[-1px]'
+                  : isDark 
+                    ? 'bg-[#1C1C1E] text-gray-300 hover:text-white hover:bg-[#2C2C2E] border border-white/10'
+                    : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200 border border-slate-200'
               }`}
             >
               💰 เจาะลึกรายรับรายวัน (Daily Earnings)
             </button>
             <button
               onClick={() => setActiveSubTab('master')}
-              className={`text-xs font-bold px-4 py-2 rounded-sm transition-all cursor-pointer ${
+              className={`text-xs font-bold px-4 py-2.5 rounded-sm transition-all cursor-pointer ${
                 activeSubTab === 'master'
-                  ? 'bg-[#D4AF37] text-black shadow-sm'
-                  : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/5'
+                  ? 'bg-[#D4AF37] text-black shadow-md border border-[#D4AF37] translate-y-[-1px]'
+                  : isDark 
+                    ? 'bg-[#1C1C1E] text-gray-300 hover:text-white hover:bg-[#2C2C2E] border border-white/10'
+                    : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200 border border-slate-200'
               }`}
             >
               📊 ตารางรวมกำลังแรงงาน (Total Staff Matrix)
@@ -1683,7 +1689,7 @@ export default function IndividualReport({
             <div className="flex flex-wrap items-center gap-2 shrink-0">
               <button
                 onClick={exportEmpCSV}
-                className="flex items-center gap-1 bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-xs py-2 px-4 rounded-sm transition-all border border-white/15 cursor-pointer"
+                className="flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-white/5 dark:hover:bg-white/10 dark:text-gray-300 font-bold text-xs py-2 px-4 rounded-sm transition-all border border-slate-200 dark:border-white/15 cursor-pointer"
               >
                 <Download className="w-4 h-4" />
                 ส่งออก CSV
@@ -1691,10 +1697,10 @@ export default function IndividualReport({
               
               <button
                 onClick={() => window.print()}
-                className="flex items-center gap-1 bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-xs py-2 px-4 rounded-sm transition-all border border-white/15 cursor-pointer"
+                className="flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-white/5 dark:hover:bg-white/10 dark:text-gray-300 font-bold text-xs py-2 px-4 rounded-sm transition-all border border-slate-200 dark:border-white/15 cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
-                ส่งออก PDF / พิมพ์คนนี้ (Export Selected PDF)
+                ส่งออก PDF / พิมพ์คนนี้
               </button>
 
               <button
@@ -1703,7 +1709,7 @@ export default function IndividualReport({
                 className="flex items-center gap-1.5 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white font-extrabold text-xs py-2 px-4 rounded-sm transition-all border border-purple-500/20 cursor-pointer shadow-md"
               >
                 <Printer className="w-4 h-4" />
-                ส่งออก PDF / พิมพ์ทุกคน (Batch Export PDF)
+                ส่งออก PDF / พิมพ์ทุกคน
               </button>
 
               <button
@@ -1719,26 +1725,7 @@ export default function IndividualReport({
                 ) : (
                   <>
                     <Save className="w-4 h-4" />
-                    💾 บันทึกลงฐานข้อมูล Supabase
-                  </>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSaveSupplementsToSupabase}
-                disabled={isSavingSupplements}
-                className="flex items-center gap-1.5 bg-[#0D9488] hover:bg-[#0F766E] text-white font-extrabold text-xs py-2 px-5 rounded-sm transition-all cursor-pointer shadow-md disabled:opacity-40"
-              >
-                {isSavingSupplements ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    กำลังบันทึกเบี้ยเลี้ยง...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4" />
-                    💵 บันทึกเฉพาะค่าเบี้ยเลี้ยง & Remark (Supabase)
+                    บันทึกลงฐานข้อมูล
                   </>
                 )}
               </button>
@@ -2460,7 +2447,7 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
             <div className="flex flex-wrap items-center gap-2 shrink-0">
               <button
                 onClick={exportWagesCSV}
-                className="flex items-center gap-1 bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-xs py-2 px-4 rounded-sm transition-all border border-white/15 cursor-pointer"
+                className="flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-white/5 dark:hover:bg-white/10 dark:text-gray-300 font-bold text-xs py-2 px-4 rounded-sm transition-all border border-slate-200 dark:border-white/15 cursor-pointer"
               >
                 <Download className="w-4 h-4" />
                 ส่งออก CSV รายรับ
@@ -2468,10 +2455,10 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
               
               <button
                 onClick={() => window.print()}
-                className="flex items-center gap-1 bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-xs py-2 px-4 rounded-sm transition-all border border-white/15 cursor-pointer"
+                className="flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-white/5 dark:hover:bg-white/10 dark:text-gray-300 font-bold text-xs py-2 px-4 rounded-sm transition-all border border-slate-200 dark:border-white/15 cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
-                ส่งออก PDF / พิมพ์หน้านี้ (Export PDF / Print Page)
+                ส่งออก PDF / พิมพ์หน้านี้
               </button>
 
               <button
@@ -2487,7 +2474,7 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
                 ) : (
                   <>
                     <Save className="w-4 h-4" />
-                    บันทึกสวัสดิการลง Supabase
+                    บันทึกลงฐานข้อมูล
                   </>
                 )}
               </button>
