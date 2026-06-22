@@ -82,10 +82,10 @@ export default function TimesheetTable({
         trSelected: 'border-b border-[#D4AF37]/50 bg-[#222326]',
         tdCell: 'py-1.5 px-2.5 border-r border-b border-[#2d2f34] text-gray-200 font-sans truncate',
         tdMono: 'py-1.5 px-2.5 border-r border-b border-[#2d2f34] text-gray-300 font-mono text-center truncate',
-        normalHours: 'py-1.5 px-2.5 text-right font-mono border-r border-b border-[#2d2f34] bg-emerald-950/40 text-emerald-400 font-bold',
-        ot15: 'py-1.5 px-2.5 text-right font-mono border-r border-b border-[#2d2f34] bg-amber-950/45 text-[#D4AF37] font-bold',
-        ot20: 'py-1.5 px-2.5 text-right font-mono border-r border-b border-[#2d2f34] bg-rose-955/40 text-rose-400 font-bold',
-        ot30: 'py-1.5 px-2.5 text-right font-mono border-r border-b border-[#2d2f34] bg-purple-955/45 text-purple-400 font-bold'
+        normalHours: 'py-1.5 px-1.5 text-right font-mono border-r border-b border-[#2d2f34] bg-emerald-950/40 text-emerald-400 font-bold',
+        ot15: 'py-1.5 px-1.5 text-right font-mono border-r border-b border-[#2d2f34] bg-amber-950/45 text-[#D4AF37] font-bold',
+        ot20: 'py-1.5 px-1.5 text-right font-mono border-r border-b border-[#2d2f34] bg-rose-955/40 text-rose-400 font-bold',
+        ot30: 'py-1.5 px-1.5 text-right font-mono border-r border-b border-[#2d2f34] bg-purple-955/45 text-purple-400 font-bold'
       };
     } else {
       return {
@@ -98,10 +98,10 @@ export default function TimesheetTable({
         trSelected: 'border-b border-indigo-200 bg-indigo-50/40',
         tdCell: 'py-1.5 px-2.5 border-r border-b border-[#e0e0e0] text-slate-700 font-sans truncate',
         tdMono: 'py-1.5 px-2.5 border-r border-b border-[#e0e0e0] text-slate-800 font-mono text-center truncate',
-        normalHours: 'py-1.5 px-2.5 text-right font-mono border-r border-b border-[#e0e0e0] bg-[#e6f4ea] text-[#137333] font-bold',
-        ot15: 'py-1.5 px-2.5 text-right font-mono border-r border-b border-[#e0e0e0] bg-[#fef7e0] text-[#b06000] font-bold',
-        ot20: 'py-1.5 px-2.5 text-right font-mono border-r border-b border-[#e0e0e0] bg-[#fce8e6] text-[#c5221f] font-bold',
-        ot30: 'py-1.5 px-2.5 text-right font-mono border-r border-b border-[#e0e0e0] bg-[#f3e8fd] text-[#8430ce] font-bold'
+        normalHours: 'py-1.5 px-1.5 text-right font-mono border-r border-b border-[#e0e0e0] bg-[#e6f4ea] text-[#137333] font-bold',
+        ot15: 'py-1.5 px-1.5 text-right font-mono border-r border-b border-[#e0e0e0] bg-[#fef7e0] text-[#b06000] font-bold',
+        ot20: 'py-1.5 px-1.5 text-right font-mono border-r border-b border-[#e0e0e0] bg-[#fce8e6] text-[#c5221f] font-bold',
+        ot30: 'py-1.5 px-1.5 text-right font-mono border-r border-b border-[#e0e0e0] bg-[#f3e8fd] text-[#8430ce] font-bold'
       };
     }
   }, [isDark]);
@@ -922,21 +922,21 @@ export default function TimesheetTable({
             <thead className={sheetStyles.thRow}>
               <tr>
                 <th className="py-2.5 px-2 w-11 text-center border-r border-[#bdc1c6] dark:border-[#2d2f34] font-bold text-slate-500 dark:text-gray-400 select-none">ID</th>
-                <th className="py-2.5 px-3 md:w-25 min-w-[200px] border-r border-[#bdc1c6] dark:border-[#2d2f34] text-left font-bold text-amber-600 dark:text-[#D4AF37]">ชื่อพนักงาน</th>
-                <th className="py-2.5 px-3 	w-25 min-w-[140px] border-r border-[#bdc1c6] dark:border-[#2d2f34] text-left font-bold">วันที่</th>
-                <th className="py-2.5 px-3 border-r border-[#bdc1c6] dark:border-[#2d2f34] text-left font-bold">วัน</th>
-                <th className="py-2.5 px-3 	w-30 min-w-[150px] border-r border-[#bdc1c6] dark:border-[#2d2f34] text-left font-bold">ชื่องาน</th>
-                <th className="py-2.5 px-2 w-20 border-r border-[#bdc1c6] dark:border-[#2d2f34] text-center font-bold">เวลาเข้า</th>
-                <th className="py-2.5 px-2 w-20 border-r border-[#bdc1c6] dark:border-[#2d2f34] text-center font-bold">เวลาออก</th>
-                <th className="py-2.5 px-3 text-center w-20 border-r border-[#bdc1c6] dark:border-[#2d2f34] font-bold">คีย์(ช่วงพักคีย์ 1)</th>
-                <th className="py-2.5 px-3 text-center w-24 border-r border-[#bdc1c6] dark:border-[#2d2f34] font-bold text-amber-600 dark:text-amber-400">วันหยุดลูกค้า</th>
-                <th className="py-2.5 px-3 text-right bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border-r border-[#bdc1c6] dark:border-[#2d2f34] font-bold">Normal</th>
-                <th className="py-2.5 px-3 text-right bg-amber-50 dark:bg-amber-950/25 text-amber-600 dark:text-[#D4AF37] border-r border-[#bdc1c6] dark:border-[#2d2f34] font-bold">OT 1.5</th>
-                <th className="py-2.5 px-3 text-right bg-rose-50 dark:bg-red-950/25 text-rose-600 dark:text-red-400 border-r border-[#bdc1c6] dark:border-[#2d2f34] font-bold">OT 2.0</th>
-                <th className="py-2.5 px-3 text-right bg-purple-50 dark:bg-purple-950/25 text-purple-600 dark:text-purple-400 border-r border-[#bdc1c6] dark:border-[#2d2f34] font-bold">OT 3.0</th>
-                <th className="py-2.5 px-3 text-center w-25 border-r border-[#bdc1c6] dark:border-[#2d2f34] font-bold text-sky-600 dark:text-sky-400">รีวิว</th>
-                <th className="py-2.5 px-3 border-r border-[#bdc1c6] dark:border-[#2d2f34] text-left font-bold">ชื่อ Job / หมายเหตุกิจกรรม (Job Reference)</th>
-                <th className="py-2.5 px-3 w-24 text-center font-bold">จัดการ</th>
+                <th className="py-2.5 px-3 w-64 min-w-[250px] border-r border-[#bdc1c6] dark:border-[#2d2f34] text-left font-bold text-amber-600 dark:text-[#D4AF37]">ชื่อพนักงาน</th>
+                <th className="py-2.5 px-3 w-28 min-w-[120px] border-r border-[#bdc1c6] dark:border-[#2d2f34] text-left font-bold">วันที่</th>
+                <th className="py-2.5 px-3 w-16 min-w-[70px] border-r border-[#bdc1c6] dark:border-[#2d2f34] text-center font-bold">วัน</th>
+                <th className="py-2.5 px-3 w-56 min-w-[150px] border-r border-[#bdc1c6] dark:border-[#2d2f34] text-left font-bold text-amber-600 dark:text-amber-400">Project</th>
+                <th className="py-2.5 px-2 w-20 min-w-[80px] border-r border-[#bdc1c6] dark:border-[#2d2f34] text-center font-bold">เวลาเข้า</th>
+                <th className="py-2.5 px-2 w-20 min-w-[80px] border-r border-[#bdc1c6] dark:border-[#2d2f34] text-center font-bold">เวลาออก</th>
+                <th className="py-2.5 px-3 text-center w-20 min-w-[80px] border-r border-[#bdc1c6] dark:border-[#2d2f34] font-bold">ช่วงพัก</th>
+                <th className="py-2.5 px-3 text-center w-28 min-w-[110px] border-r border-[#bdc1c6] dark:border-[#2d2f34] font-bold text-amber-600 dark:text-amber-400">วันหยุดลูกค้า</th>
+                <th className="py-2.5 px-2.5 text-right bg-emerald-50/60 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border-r border-[#bdc1c6] dark:border-[#2d2f34] font-bold w-14 min-w-[55px]">Normal</th>
+                <th className="py-2.5 px-2.5 text-right bg-amber-50/60 dark:bg-amber-950/25 text-amber-600 dark:text-[#D4AF37] border-r border-[#bdc1c6] dark:border-[#2d2f34] font-bold w-14 min-w-[55px]">OT 1.5</th>
+                <th className="py-2.5 px-2.5 text-right bg-rose-50/60 dark:bg-red-950/25 text-rose-600 dark:text-red-400 border-r border-[#bdc1c6] dark:border-[#2d2f34] font-bold w-14 min-w-[55px]">OT 2.0</th>
+                <th className="py-2.5 px-2.5 text-right bg-purple-50/60 dark:bg-purple-950/25 text-purple-600 dark:text-purple-400 border-r border-[#bdc1c6] dark:border-[#2d2f34] font-bold w-14 min-w-[55px]">OT 3.0</th>
+                <th className="py-2.5 px-3 text-center w-24 min-w-[95px] border-r border-[#bdc1c6] dark:border-[#2d2f34] font-bold text-sky-600 dark:text-sky-400">รีวิว</th>
+                <th className="py-2.5 px-3 border-r border-[#bdc1c6] dark:border-[#2d2f34] text-left font-bold min-w-[180px]">ชื่อ Job / หมายเหตุกิจกรรม (Job Reference)</th>
+                <th className="py-2.5 px-3 w-28 min-w-[110px] text-center font-bold">จัดการ</th>
               </tr>
             </thead>
             <tbody>
@@ -975,20 +975,20 @@ export default function TimesheetTable({
                       </td>
 
                       {/* Employee Name */}
-                      <td className={`${sheetStyles.tdCell} whitespace-nowrap min-w-[200px] !truncate-none`}>
+                      <td className={`${sheetStyles.tdCell} !overflow-visible whitespace-nowrap min-w-[250px]`}>
                         {isEditing ? (
                           <select
                             id={`edit-emp-${e.id}`}
                             value={editingEntry.employeeName}
                             onChange={(ev) => setEditingEntry({ ...editingEntry, employeeName: ev.target.value })}
-                            className="bg-white dark:bg-[#0D0D0D] border border-slate-300 dark:border-white/15 rounded px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-white"
+                            className="bg-white dark:bg-[#0D0D0D] border border-slate-300 dark:border-white/15 rounded px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-white w-full max-w-[240px]"
                           >
                             {employees.map(emp => (
                               <option key={emp.id} value={emp.employeeName} className="bg-white dark:bg-[#0D0D0D] text-slate-800 dark:text-white">{emp.employeeName}</option>
                             ))}
                           </select>
                         ) : (
-                          <span className="font-semibold text-slate-900 dark:text-white">{e.employeeName}</span>
+                          <span className="font-semibold text-slate-900 dark:text-white whitespace-normal break-words">{e.employeeName}</span>
                         )}
                       </td>
 
@@ -1029,19 +1029,21 @@ export default function TimesheetTable({
                       </td>
 
                       {/* Project */}
-                      <td className={sheetStyles.tdCell}>
+                      <td className={`${sheetStyles.tdCell} max-w-[220px] overflow-hidden`}>
                         {isEditing ? (
                           <input
                             id={`edit-project-${e.id}`}
                             type="text"
                             value={editingEntry.project}
                             onChange={(ev) => setEditingEntry({ ...editingEntry, project: ev.target.value })}
-                            className="bg-white dark:bg-[#0D0D0D] border border-slate-300 dark:border-white/15 text-slate-850 dark:text-white rounded px-1.5 py-0.5 text-xs"
+                            className="bg-white dark:bg-[#0D0D0D] border border-slate-300 dark:border-white/15 text-slate-850 dark:text-white rounded px-1.5 py-0.5 text-xs w-full max-w-[200px]"
                           />
                         ) : (
-                          <span className="font-mono bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-gray-450 px-1.5 py-0.5 rounded text-[10px]">
-                            {e.project && e.project.toLowerCase() !== 'workshop' ? e.project : ''}
-                          </span>
+                          <div className="flex flex-col gap-0.5 justify-center" title={e.project || 'WORKSHOP'}>
+                            <span className="font-sans font-extrabold text-[#D4AF37] dark:text-[#E2C365] bg-amber-500/5 dark:bg-amber-500/10 border border-amber-300/40 dark:border-amber-500/20 px-2 py-1 rounded text-[11px] block truncate transition-all max-w-[210px]">
+                              {e.project ? e.project.toUpperCase() : 'WORKSHOP'}
+                            </span>
+                          </div>
                         )}
                       </td>
 

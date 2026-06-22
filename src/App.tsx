@@ -457,7 +457,7 @@ export default function App() {
       <header className={`border-b shadow-md transition-colors duration-250 ${
         isDark ? 'bg-[#0D0D0D] text-white border-white/10' : 'bg-white text-slate-800 border-slate-200'
       }`}>
-        <div className="max-w-7xl mx-auto px-4 md:px-6 py-5 font-sans">
+        <div className="max-w-full mx-auto px-4 md:px-8 xl:px-12 py-5 font-sans">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2">
@@ -520,7 +520,7 @@ export default function App() {
         <div className={`border-t transition-colors duration-250 ${
           isDark ? 'border-white/10 bg-[#0D0D0D]/90' : 'border-slate-200 bg-slate-50'
         }`}>
-          <div className="max-w-7xl mx-auto px-4 md:px-6">
+          <div className="max-w-full mx-auto px-4 md:px-8 xl:px-12">
             <nav className="flex space-x-2 py-2 overflow-x-auto">
               <button
                 id="tab-ledger"
@@ -631,7 +631,7 @@ export default function App() {
       </header>
 
       {/* Main Workspace Frame */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 md:px-6 py-6 font-sans">
+      <main className="flex-1 max-w-full w-full mx-auto px-4 md:px-8 xl:px-12 py-6 font-sans">
         {activeTab === 'ledger' && (
           <div className="space-y-4">
             <div className={`border p-4 rounded flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors duration-250 ${
@@ -796,7 +796,7 @@ export default function App() {
       <footer className={`border-t py-6 text-center text-xs font-light font-mono transition-colors duration-250 ${
         isDark ? 'bg-[#0D0D0D] border-white/10 text-gray-500' : 'bg-slate-100 border-slate-200 text-slate-500'
       }`}>
-        <div className="max-w-7xl mx-auto px-4 space-y-1">
+        <div className="max-w-full mx-auto px-4 md:px-8 xl:px-12 space-y-1">
           <p>© 2026 Thai Timesheet & OT Calculation Engine with Supabase. All Rights Reserved.</p>
           <p className="text-[10px] text-gray-400">
             ระบบคำนวณอัตราทำงานและวันจ่ายเงินเดือนแบบ Real-time เชื่อมโยงฐานข้อมูลคลาวด์ สอดคล้องตามเกณฑ์มาตรฐานความปลอดภัยสูง
