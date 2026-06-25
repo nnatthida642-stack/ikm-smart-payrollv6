@@ -1352,10 +1352,10 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
 
       {/* SLIP MODAL DIALOG PREVIEW CONTAINER */}
       {activeSlip && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-[#141414] border border-white/20 rounded max-w-2xl w-full p-6 space-y-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+        <div id="single-slip-modal-backdrop" className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div id="single-slip-modal-content" className="bg-[#141414] border border-white/20 rounded max-w-2xl w-full p-6 space-y-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
             {/* Header controls for Modal */}
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3 print-hidden">
               <h3 className="text-xs font-bold text-[#D4AF37] uppercase flex items-center gap-1.5 font-serif">
                 <FileText className="w-4 h-4 text-[#D4AF37]" />
                 สลิปยอดเงินเดี่ยวราชการ / ประกันสังคม บริษัทจำกัด (PREVIEW & PRINT)
@@ -1537,7 +1537,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
             </div>
 
             {/* Print footer notice */}
-            <div className="text-xs text-gray-500 font-mono text-center pt-3 border-t border-white/5">
+            <div className="text-xs text-gray-500 font-mono text-center pt-3 border-t border-white/5 print-hidden">
               ออกแบบรองรับสัดส่วนเอกสาร A5 หรือ carbon slip ได้อย่างประณีต
             </div>
           </div>
@@ -1554,32 +1554,54 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
               margin: 0 !important;
               padding: 0 !important;
             }
-            /* Hide everything on screen */
-            body * {
+            
+            /* Hide other siblings of our print containers inside root */
+            #root > *:not(#single-slip-modal-backdrop):not(#print-backdrop-container) {
+              display: none !important;
               visibility: hidden !important;
             }
-            /* Allow print container elements to be visible */
-            #print-backdrop-container,
-            #print-backdrop-container *,
-            #thai-ot-slip-printable-area,
-            #thai-ot-slip-printable-area * {
-              visibility: visible !important;
-            }
             
-            /* Styles for single slip container */
-            #thai-ot-slip-printable-area {
+            /* Unconstrain single slip modal wrapper and backdrop during print to prevent clipping */
+            #single-slip-modal-backdrop {
+              position: static !important;
               display: block !important;
-              position: absolute !important;
-              left: 0 !important;
-              top: 0 !important;
-              width: 100% !important;
+              background: transparent !important;
+              padding: 0 !important;
               margin: 0 !important;
-              padding: 8mm 12mm !important; /* Slightly tighter padding to guarantee 1 page */
-              box-sizing: border-box !important;
+              overflow: visible !important;
+              width: 100% !important;
+              height: auto !important;
+              max-height: none !important;
+              box-shadow: none !important;
+            }
+            #single-slip-modal-content {
+              position: static !important;
+              display: block !important;
+              background: transparent !important;
               border: none !important;
               box-shadow: none !important;
+              padding: 0 !important;
+              margin: 0 !important;
+              overflow: visible !important;
+              width: 100% !important;
+              max-width: none !important;
+              height: auto !important;
+              max-height: none !important;
+            }
+
+            /* Single slip layout style optimized for exactly one A4 page without clipping */
+            #thai-ot-slip-printable-area {
+              display: block !important;
+              position: relative !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              margin: 0 auto !important;
+              padding: 6mm 10mm !important; /* Elegant tighter padding to fit everything on exactly 1 page */
+              box-sizing: border-box !important;
               background: white !important;
               color: black !important;
+              border: none !important;
+              box-shadow: none !important;
               page-break-inside: avoid !important;
               break-inside: avoid !important;
             }
@@ -1607,7 +1629,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
               background: white !important;
             }
             .print-page {
-              padding: 8mm 12mm !important; /* Tighter padding for bulk printed pages */
+              padding: 6mm 10mm !important; /* Matches single-slip page padding */
               margin: 0 !important;
               border: none !important;
               box-shadow: none !important;
@@ -1628,7 +1650,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
               border-color: #000000 !important;
               color: #000000 !important;
             }
-            .print-hidden, .no-print, button {
+            .print-hidden, .no-print, button, header, footer, nav, aside {
               display: none !important;
               visibility: hidden !important;
             }
