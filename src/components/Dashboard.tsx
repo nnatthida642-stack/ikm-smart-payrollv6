@@ -5,7 +5,7 @@ import {
   PieChart, Pie, Cell
 } from 'recharts';
 import { 
-  Users, Clock, Calendar, Download, Search, AlertCircle
+  Users, Clock, Calendar, Download, Search, AlertCircle, Coins
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -135,6 +135,201 @@ export default function Dashboard({ entries, employees, holidays, isDark = true 
     let totalOT30 = 0;
     let activePersons = new Set<string>();
 
+    // Load local storage states for accurate financial estimations
+    let settings = {
+      ot15Rate: 1.5,
+      ot20Rate: 2.0,
+      ot30Rate: 3.0,
+      defaultDailyWage: 700,
+      defaultWorkHours: 8
+    };
+    try {
+      const saved = localStorage.getItem('thai_ot_settings');
+      if (saved) settings = JSON.parse(saved);
+    } catch (e) {}
+
+    let allowances: Record<string, number> = {};
+    try {
+      const saved = localStorage.getItem('payroll_allowances');
+      if (saved) allowances = JSON.parse(saved);
+    } catch (e) {}
+
+    let supplements: Record<string, any> = {};
+    try {
+      const saved = localStorage.getItem('thai_ot_individual_supplements');
+      if (saved) supplements = JSON.parse(saved);
+    } catch (e) {}
+
+    let customTaxes: Record<string, number> = {};
+    try {
+      const saved = localStorage.getItem('payroll_custom_taxes');
+      if (saved) customTaxes = JSON.parse(saved);
+    } catch (e) {}
+
+    let customStudentLoans: Record<string, number> = {};
+    try {
+      const saved = localStorage.getItem('payroll_custom_student_loans');
+      if (saved) customStudentLoans = JSON.parse(saved);
+    } catch (e) {}
+
+    let deductions: Record<string, number> = {};
+    try {
+      const saved = localStorage.getItem('payroll_deductions');
+      if (saved) deductions = JSON.parse(saved);
+    } catch (e) {}
+
+    let grandGrossIncome = 0;
+    let grandNetIncome = 0;
+
+    // Loop through each active employee to compute their gross income for this period
+    employees.forEach(emp => {
+      const empEntries = periodEntries.filter(e => e.employeeName.toLowerCase().trim() === emp.employeeName.toLowerCase().trim());
+      if (empEntries.length === 0) return;
+
+      activePersons.add(emp.employeeName);
+
+      // Replicate PayrollSection calculations
+      let baseNormalPay = 0;
+      let transportAllowanceTotal = 0;
+      let ot15Pay = 0;
+      let ot20Pay = 0;
+      let ot30Pay = 0;
+      let hourlyRate = 0;
+
+      const isStaff = emp.workScheduleType === 'staff';
+
+      if (isStaff) {
+        const salary = emp.officeSalary || emp.staffSalary || 0;
+        baseNormalPay = salary;
+        hourlyRate = Number((salary / 30 / settings.defaultWorkHours).toFixed(2));
+
+        let runningOt15Pay = 0;
+        let runningOt20Pay = 0;
+        let runningOt30Pay = 0;
+
+        empEntries.forEach(ent => {
+          const proj = (ent.project || '').toLowerCase();
+          const isOffshore = proj.includes('offshore');
+          if (!isOffshore) {
+            runningOt15Pay += ent.ot15Hours * hourlyRate * settings.ot15Rate;
+            runningOt20Pay += ent.ot20Hours * hourlyRate * 1.0;
+            runningOt30Pay += ent.ot30Hours * hourlyRate * settings.ot30Rate;
+          }
+        });
+
+        ot15Pay = runningOt15Pay;
+        ot20Pay = runningOt20Pay;
+        ot30Pay = runningOt30Pay;
+      } else {
+        let dailyWorkerSum = 0;
+        let runningOt15Pay = 0;
+        let runningOt20Pay = 0;
+        let runningOt30Pay = 0;
+        let runningTransportAllowance = 0;
+
+        empEntries.forEach(ent => {
+          let dayRate = emp.workshopRate || 0;
+          const proj = (ent.project || '').toLowerCase().trim();
+          const isOffshore = proj.includes('offshore');
+          const isWfh = proj.includes('wfh') || proj.includes('home');
+          const isWorkshop = proj.includes('workshop');
+          const isOnsite = proj.includes('onsite') || (proj !== '' && !isWorkshop && !isOffshore && !isWfh);
+          
+          if (isOnsite) {
+            dayRate = emp.onsiteRate || 0;
+          } else if (isOffshore) {
+            dayRate = emp.offshoreRate || 0;
+          } else if (isWfh) {
+            dayRate = emp.wfhRate || 0;
+          }
+
+          dailyWorkerSum += dayRate * (ent.normalHours / settings.defaultWorkHours);
+
+          if (!isOffshore) {
+            const dayHourlyRate = Number((dayRate / settings.defaultWorkHours).toFixed(2));
+            runningOt15Pay += ent.ot15Hours * dayHourlyRate * settings.ot15Rate;
+            runningOt20Pay += ent.ot20Hours * dayHourlyRate * settings.ot20Rate;
+            runningOt30Pay += ent.ot30Hours * dayHourlyRate * settings.ot30Rate;
+          }
+        });
+
+        baseNormalPay = dailyWorkerSum;
+        ot15Pay = runningOt15Pay;
+        ot20Pay = runningOt20Pay;
+        ot30Pay = runningOt30Pay;
+      }
+
+      let totalConfineSpace = 0;
+      let totalIncentive = 0;
+      let totalPerdiem = 0;
+
+      // Generate the physical dates within range
+      const periodDates: string[] = [];
+      if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const current = new Date(start);
+        let safetyCount = 0;
+        while (current <= end && safetyCount < 366) {
+          const year = current.getFullYear();
+          const month = String(current.getMonth() + 1).padStart(2, '0');
+          const day = String(current.getDate()).padStart(2, '0');
+          periodDates.push(`${year}-${month}-${day}`);
+          current.setDate(current.getDate() + 1);
+          safetyCount++;
+        }
+      }
+
+      // Sum supplements over all physical dates in the period for this employee
+      periodDates.forEach(dStr => {
+        // Find if there are any drafts/entries for this employee on this day
+        const dayDrafts = empEntries.filter(ent => ent.date === dStr);
+        if (dayDrafts.length === 0) {
+          const rowKey = `${emp.id}_${dStr}_draft-${dStr}`;
+          const supp = supplements[rowKey] || supplements[`${emp.id}_${dStr}`];
+          if (supp) {
+            totalConfineSpace += Number(supp.confineSpace || 0);
+            totalIncentive += Number(supp.incentive || 0);
+            totalPerdiem += Number(supp.perdiem || 0);
+          }
+        } else {
+          dayDrafts.forEach(draft => {
+            const rowKey = draft.id ? `${emp.id}_${dStr}_${draft.id}` : `${emp.id}_${dStr}`;
+            const supp = supplements[rowKey] || supplements[`${emp.id}_${dStr}`];
+            if (supp) {
+              totalConfineSpace += Number(supp.confineSpace || 0);
+              totalIncentive += Number(supp.incentive || 0);
+              totalPerdiem += Number(supp.perdiem || 0);
+            }
+          });
+        }
+      });
+
+      const extraAllowance = allowances[emp.id] || 0;
+      const otherDeduction = deductions[emp.id] || 0;
+      const grossIncome = baseNormalPay + transportAllowanceTotal + ot15Pay + ot20Pay + ot30Pay + extraAllowance + totalConfineSpace + totalIncentive + totalPerdiem;
+      
+      let ssoDeduction = 0;
+      const ssoBaseSalary = baseNormalPay;
+      if (ssoBaseSalary > 0) {
+        const adjustedBase = Math.max(1650, Math.min(17500, ssoBaseSalary));
+        ssoDeduction = Math.round(adjustedBase * 0.05);
+      }
+
+      const defaultTax = 0;
+      const calculatedTax = customTaxes[emp.id] !== undefined ? customTaxes[emp.id] : defaultTax;
+
+      const defaultStudentLoan = emp.studentLoan || 0;
+      const studentLoanDeduct = customStudentLoans[emp.id] !== undefined ? customStudentLoans[emp.id] : defaultStudentLoan;
+
+      const totalDeductionVal = ssoDeduction + calculatedTax + studentLoanDeduct + otherDeduction;
+      const netPayment = grossIncome - totalDeductionVal;
+
+      grandGrossIncome += grossIncome;
+      grandNetIncome += netPayment;
+    });
+
+    // Also calculate basic totals for hours
     periodEntries.forEach(e => {
       const proj = (e.project || '').toLowerCase();
       const isOffshore = proj.includes('offshore');
@@ -143,7 +338,6 @@ export default function Dashboard({ entries, employees, holidays, isDark = true 
       totalOT15 += isOffshore ? 0 : e.ot15Hours;
       totalOT20 += isOffshore ? 0 : e.ot20Hours;
       totalOT30 += isOffshore ? 0 : e.ot30Hours;
-      activePersons.add(e.employeeName);
     });
 
     const totalOT = totalOT15 + totalOT20 + totalOT30;
@@ -156,9 +350,11 @@ export default function Dashboard({ entries, employees, holidays, isDark = true 
       ot30: Number(totalOT30.toFixed(2)),
       totalOT: Number(totalOT.toFixed(2)),
       grandTotal: Number(grandTotal.toFixed(2)),
-      activeCount: activePersons.size
+      activeCount: activePersons.size,
+      grandGrossIncome: Number(grandGrossIncome.toFixed(2)),
+      grandNetIncome: Number(grandNetIncome.toFixed(2))
     };
-  }, [periodEntries]);
+  }, [periodEntries, employees]);
 
   // Chart data
   const chartData = useMemo(() => {
@@ -342,7 +538,7 @@ export default function Dashboard({ entries, employees, holidays, isDark = true 
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         <div className={`border rounded-xs p-4 flex items-center gap-4 ${cardBgStyle}`}>
           <div className={`w-10 h-10 rounded-sm flex items-center justify-center border ${
             isDark ? 'bg-[#0D0D0D] border-white/5 text-[#D4AF37]' : 'bg-amber-50 border-amber-200 text-amber-700'
@@ -392,6 +588,32 @@ export default function Dashboard({ entries, employees, holidays, isDark = true 
             <div className={`text-[10px] uppercase tracking-widest ${textMutedStyle}`}>รวมเวลาระบบทั้งหมด</div>
             <div className={`text-lg font-bold mt-0.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>{totalStats.grandTotal.toLocaleString()} ชม.</div>
             <div className="text-[9px] text-gray-500 font-mono">ยอดชั่วโมงสะสมรวมสุทธิ</div>
+          </div>
+        </div>
+
+        <div className={`border rounded-xs p-4 flex items-center gap-4 ${cardBgStyle}`}>
+          <div className={`w-10 h-10 rounded-sm flex items-center justify-center border ${
+            isDark ? 'bg-[#0D0D0D] border-white/5 text-emerald-400' : 'bg-emerald-50 border-emerald-250 text-emerald-700'
+          }`}>
+            <Coins className="w-5 h-5" />
+          </div>
+          <div>
+            <div className={`text-[10px] uppercase tracking-widest ${textMutedStyle}`}>รายได้รวมก่อนหัก</div>
+            <div className="text-lg font-bold mt-0.5 text-emerald-600 dark:text-emerald-400">{totalStats.grandGrossIncome.toLocaleString()} ฿</div>
+            <div className="text-[9px] text-gray-500 font-mono">เงินรวมสุทธิก่อนหักภาษี/สปส.</div>
+          </div>
+        </div>
+
+        <div className={`border rounded-xs p-4 flex items-center gap-4 ${cardBgStyle}`}>
+          <div className={`w-10 h-10 rounded-sm flex items-center justify-center border ${
+            isDark ? 'bg-[#0D0D0D] border-white/5 text-[#D4AF37]' : 'bg-amber-50 border-amber-205 text-[#B45309]'
+          }`}>
+            <Coins className="w-5 h-5" />
+          </div>
+          <div>
+            <div className={`text-[10px] uppercase tracking-widest ${textMutedStyle}`}>รายได้สุทธิรวมหลังหัก</div>
+            <div className="text-lg font-bold mt-0.5 text-amber-700 dark:text-[#D4AF37]">{totalStats.grandNetIncome.toLocaleString()} ฿</div>
+            <div className="text-[9px] text-gray-500 font-mono">เงินจ่ายสุทธิพนักงานทั้งหมด</div>
           </div>
         </div>
       </div>

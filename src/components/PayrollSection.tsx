@@ -3,7 +3,7 @@ import { Employee, TimesheetEntry, SystemSettings } from '../types';
 import { 
   CreditCard, Download, Search, Settings, Calendar, 
   UserCheck, AlertCircle, FileText, CheckCircle2, 
-  Printer, ArrowRight, Save, Coins, ShieldCheck
+  Printer, ArrowRight, Save, Coins, ShieldCheck, Banknote
 } from 'lucide-react';
 import { supabase, dbSaveMonthlySummary, dbSaveRateCalculation, dbFetchSupplements, dbSaveSupplements, dbFetchMonthlySummaries, stringToUUID } from '../lib/supabaseClient';
 import { formatThaiDate } from '../utils/calculator';
@@ -334,20 +334,45 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
       let totalIncentive = 0;
       let totalPerdiem = 0;
 
-      empEntries.forEach(ent => {
-        const rowKey = ent.id ? `${emp.id}_${ent.date}_${ent.id}` : `${emp.id}_${ent.date}`;
-        const supp = supplements[rowKey] || supplements[`${emp.id}_${ent.date}`];
-        
-        const proj = (ent.project || '').toLowerCase().trim();
-        const isOffshore = proj.includes('offshore');
-        const isWfh = proj.includes('wfh') || proj.includes('home');
-        const isWorkshop = proj.includes('workshop');
-        const isOnsite = proj.includes('onsite') || (proj !== '' && !isWorkshop && !isOffshore && !isWfh);
-        
-        if (supp) {
-          totalConfineSpace += Number(supp.confineSpace || 0);
-          totalIncentive += Number(supp.incentive || 0);
-          totalPerdiem += Number(supp.perdiem || 0);
+      // Generate the physical dates within range
+      const periodDates: string[] = [];
+      if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const current = new Date(start);
+        let safetyCount = 0;
+        while (current <= end && safetyCount < 366) {
+          const year = current.getFullYear();
+          const month = String(current.getMonth() + 1).padStart(2, '0');
+          const day = String(current.getDate()).padStart(2, '0');
+          periodDates.push(`${year}-${month}-${day}`);
+          current.setDate(current.getDate() + 1);
+          safetyCount++;
+        }
+      }
+
+      // Sum supplements over all physical dates in the period for this employee
+      periodDates.forEach(dStr => {
+        // Find if there are any drafts/entries for this employee on this day
+        const dayDrafts = empEntries.filter(ent => ent.date === dStr);
+        if (dayDrafts.length === 0) {
+          const rowKey = `${emp.id}_${dStr}_draft-${dStr}`;
+          const supp = supplements[rowKey] || supplements[`${emp.id}_${dStr}`];
+          if (supp) {
+            totalConfineSpace += Number(supp.confineSpace || 0);
+            totalIncentive += Number(supp.incentive || 0);
+            totalPerdiem += Number(supp.perdiem || 0);
+          }
+        } else {
+          dayDrafts.forEach(draft => {
+            const rowKey = draft.id ? `${emp.id}_${dStr}_${draft.id}` : `${emp.id}_${dStr}`;
+            const supp = supplements[rowKey] || supplements[`${emp.id}_${dStr}`];
+            if (supp) {
+              totalConfineSpace += Number(supp.confineSpace || 0);
+              totalIncentive += Number(supp.incentive || 0);
+              totalPerdiem += Number(supp.perdiem || 0);
+            }
+          });
         }
       });
 
@@ -425,6 +450,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
     let grandOT20 = 0;
     let grandOT30 = 0;
     let grandAllowance = 0;
+    let grandOtherDeduction = 0;
     let grandTax = 0;
     let grandSSO = 0;
     let grandStudentLoan = 0;
@@ -436,7 +462,8 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
       grandOT15 += p.ot15Wage;
       grandOT20 += p.ot20Wage;
       grandOT30 += p.ot30Wage;
-      grandAllowance += (p.transportAllowance + p.extraAllowance);
+      grandAllowance += p.manualOtherIncome;
+      grandOtherDeduction += p.otherDeduction;
       grandTax += p.tax;
       grandSSO += p.sso;
       grandStudentLoan += p.studentLoan;
@@ -450,6 +477,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
       ot20: Number(grandOT20.toFixed(2)),
       ot30: Number(grandOT30.toFixed(2)),
       allowance: Number(grandAllowance.toFixed(2)),
+      otherDeduction: Number(grandOtherDeduction.toFixed(2)),
       tax: Math.round(grandTax),
       sso: Math.round(grandSSO),
       studentLoan: Math.round(grandStudentLoan),
@@ -822,7 +850,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
       </div>
 
       {/* Payroll KPI Cards Dashboard */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className={`${kpiBgStyle} p-4 rounded-sm flex items-center gap-4 text-left`}>
           <div className={`w-10 h-10 rounded-sm flex items-center justify-center ${isDark ? 'bg-[#0D0D0D] border border-white/5' : 'bg-sky-50'}`}>
             <FileText className="w-5 h-5 text-sky-500" />
@@ -853,6 +881,17 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
             <div className={`text-[10px] ${textMutedStyle} uppercase tracking-widest font-sans font-bold`}>ประกันสังคม + ภาษีรวม</div>
             <div className="text-base font-extrabold text-slate-750 dark:text-gray-300 mt-0.5">{(totals.sso + totals.tax).toLocaleString()} ฿</div>
             <div className="text-[9px] text-gray-400 font-mono">หักรัฐบาล (SSO ประกันฯ ปี 2569)</div>
+          </div>
+        </div>
+
+        <div className={`${kpiBgStyle} p-4 rounded-sm flex items-center gap-4 text-left`}>
+          <div className={`w-10 h-10 rounded-sm flex items-center justify-center ${isDark ? 'bg-[#0D0D0D] border border-white/5' : 'bg-emerald-50'}`}>
+            <Banknote className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <div>
+            <div className={`text-[10px] ${textMutedStyle} uppercase tracking-widest font-sans font-bold`}>รายได้รวมก่อนหัก (Total Gross Income)</div>
+            <div className="text-base font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">{totals.gross.toLocaleString()} ฿</div>
+            <div className="text-[9px] text-gray-400 font-mono">รายรับสะสมทั้งหมดก่อนหัก</div>
           </div>
         </div>
 
@@ -932,6 +971,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                 <th className="py-2.5 px-3 text-right text-slate-800 dark:text-gray-300 font-bold">ค่าจ้างมูลฐาน</th>
                 <th className="py-2.5 px-3 text-right text-amber-653 dark:text-[#D4AF37] font-bold">ยอดสะสม OT</th>
                 <th className="py-2.5 px-3 text-center font-bold text-amber-600 dark:text-amber-400">Other Income (กรอกเอง)</th>
+                <th className="py-2.5 px-3 text-right font-extrabold text-teal-600 dark:text-teal-400 bg-teal-500/5 dark:bg-teal-500/10 border-x border-slate-200/50 dark:border-white/15">รายได้รวม</th>
                 <th className="py-2.5 px-3 text-center font-bold text-red-500">Deduction (กรอกเอง)</th>
                 <th className="py-2.5 px-3 text-right text-red-650 dark:text-red-400 font-bold">หักภาษี 3%</th>
                 <th className="py-2.5 px-3 text-right text-red-650 dark:text-red-400 font-bold">หักประกันสังคม (2569)</th>
@@ -982,6 +1022,11 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                         }}
                         className={`w-20 text-[11px] px-1.5 py-1 text-right bg-transparent border rounded-sm focus:outline-hidden ${isDark ? 'border-white/10 text-amber-400 focus:border-[#D4AF37]' : 'border-slate-300 text-amber-700 font-bold focus:border-amber-600'}`}
                       />
+                    </td>
+
+                    {/* รายได้รวม (Total/Gross Income) */}
+                    <td className="py-2 px-3 text-right font-mono font-bold text-teal-600 dark:text-teal-400 bg-teal-500/5 dark:bg-teal-500/10 border-x border-slate-200/50 dark:border-white/15">
+                      {p.totalIncome.toLocaleString()} ฿
                     </td>
 
                     {/* Deduction (Other Deduction กรอกเอง) */}
@@ -1082,6 +1127,8 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                   <td className="py-2.5 px-3 text-right text-slate-800 dark:text-gray-100">{totals.normalPay.toLocaleString()}</td>
                   <td className="py-2.5 px-3 text-right text-amber-653 dark:text-[#D4AF37]">{(totals.ot15 + totals.ot20 + totals.ot30).toLocaleString()}</td>
                   <td className="py-2.5 px-3 text-right text-slate-705 dark:text-gray-305">{totals.allowance.toLocaleString()}</td>
+                  <td className="py-2.5 px-3 text-right text-teal-600 dark:text-teal-400 bg-teal-500/5 dark:bg-teal-500/10 border-x border-slate-200/50 dark:border-white/15 font-extrabold">{totals.gross.toLocaleString()} ฿</td>
+                  <td className="py-2.5 px-3 text-right text-red-500 dark:text-red-400">{totals.otherDeduction.toLocaleString()}</td>
                   <td className="py-2.5 px-3 text-right text-red-500 dark:text-red-400">{totals.tax.toLocaleString()}</td>
                   <td className="py-2.5 px-3 text-right text-red-500 dark:text-red-400">{totals.sso.toLocaleString()}</td>
                   <td className="py-2.5 px-3 text-right text-purple-600 dark:text-purple-400">{totals.studentLoan.toLocaleString()}</td>
@@ -1374,16 +1421,20 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                     <span>เงินค่าจ้างมูลฐานสะสม</span>
                     <strong>{activeSlip.baseNormalPay.toLocaleString()}</strong>
                   </div>
+                  <div className="p-1 px-3 flex justify-between text-indigo-900 bg-indigo-50/20">
+                    <span className="font-semibold">ค่าทำงานล่วงเวลาและทำงานในวันหยุด</span>
+                    <strong>{(activeSlip.ot15Wage + activeSlip.ot20Wage + activeSlip.ot30Wage).toLocaleString()}</strong>
+                  </div>
                   <div className="p-1 px-3 flex justify-between">
                     <span>ค่าล่วงเวลาสะสม (OT 1.5)</span>
                     <strong>{activeSlip.ot15Wage.toLocaleString()}</strong>
                   </div>
                   <div className="p-1 px-3 flex justify-between">
-                    <span>ค่าทำงานเสาร์/วันหยุด (OT 2.0)</span>
+                    <span>ค่าทำงานวันหยุด</span>
                     <strong>{activeSlip.ot20Wage.toLocaleString()}</strong>
                   </div>
                   <div className="p-1 px-3 flex justify-between">
-                    <span>ค่าล่วงเวลาลากหยุด (OT 3.0)</span>
+                    <span>ค่าล่วงเวลาวันหยุด</span>
                     <strong>{activeSlip.ot30Wage.toLocaleString()}</strong>
                   </div>
                   {activeSlip.transportAllowance > 0 && (
@@ -1425,7 +1476,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                 <div className="border-l border-r border-[#000] divide-y divide-gray-300">
                   <div className="bg-gray-100 p-1.5 font-bold text-center border-b border-gray-400">รายการหักลบ ณ จ่าย (Deductions)</div>
                   <div className="p-1 px-3 flex justify-between">
-                    <span>ภาษีหัก ณ ที่จ่าย 3%</span>
+                    <span>ภาษี</span>
                     <strong>{activeSlip.tax.toLocaleString()}</strong>
                   </div>
                   <div className="p-1 px-3 flex justify-between">
@@ -1475,7 +1526,6 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                   <div className="h-6"></div>
                   <p className="font-bold text-black">(___________________________)</p>
                   <p className="mt-1">ผู้จัดทำ / ฝ่ายการเงิน และบริหารเงินเดือน</p>
-                  <p className="text-[10px] text-gray-400">วันที่โอนจ่าย: {endDate}</p>
                 </div>
                 <div className="border-t border-gray-300 pt-3">
                   <div className="h-6"></div>
@@ -1495,28 +1545,46 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
       )}
 
       {/* CUSTOM PRINT MEDIA STYLES INJECTED DYNAMICALLY */}
-      {printMode !== null && (
+      {(printMode !== null || selectedSlipEmpId !== null) && (
         <style dangerouslySetInnerHTML={{ __html: `
           @media print {
             body {
               background: white !important;
               color: black !important;
+              margin: 0 !important;
+              padding: 0 !important;
             }
-            #root > *:not(#print-backdrop-container),
-            header,
-            footer,
-            nav,
-            aside,
-            button,
-            .print-hidden,
-            .no-print {
-              display: none !important;
+            /* Hide everything on screen */
+            body * {
               visibility: hidden !important;
             }
+            /* Allow print container elements to be visible */
             #print-backdrop-container,
-            #print-backdrop-container * {
+            #print-backdrop-container *,
+            #thai-ot-slip-printable-area,
+            #thai-ot-slip-printable-area * {
               visibility: visible !important;
             }
+            
+            /* Styles for single slip container */
+            #thai-ot-slip-printable-area {
+              display: block !important;
+              position: absolute !important;
+              left: 0 !important;
+              top: 0 !important;
+              width: 100% !important;
+              margin: 0 !important;
+              padding: 8mm 12mm !important; /* Slightly tighter padding to guarantee 1 page */
+              box-sizing: border-box !important;
+              border: none !important;
+              box-shadow: none !important;
+              background: white !important;
+              color: black !important;
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+            }
+
+            /* Styles for bulk printing container */
             #print-backdrop-container {
               display: block !important;
               position: absolute !important;
@@ -1539,7 +1607,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
               background: white !important;
             }
             .print-page {
-              padding: 0 !important;
+              padding: 8mm 12mm !important; /* Tighter padding for bulk printed pages */
               margin: 0 !important;
               border: none !important;
               box-shadow: none !important;
@@ -1550,6 +1618,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
               break-after: page !important;
               background: white !important;
               color: black !important;
+              box-sizing: border-box !important;
             }
             table {
               border-collapse: collapse !important;
@@ -1558,6 +1627,10 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
             th, td {
               border-color: #000000 !important;
               color: #000000 !important;
+            }
+            .print-hidden, .no-print, button {
+              display: none !important;
+              visibility: hidden !important;
             }
           }
         ` }} />
@@ -1643,16 +1716,20 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                       <span>เงินค่าจ้างมูลฐานสะสม</span>
                       <strong>{empSlip.baseNormalPay.toLocaleString()}</strong>
                     </div>
+                    <div className="p-1 px-3 flex justify-between text-indigo-900 bg-indigo-50/20 font-sans">
+                      <span className="font-semibold">ค่าทำงานล่วงเวลาและทำงานในวันหยุด</span>
+                      <strong>{(empSlip.ot15Wage + empSlip.ot20Wage + empSlip.ot30Wage).toLocaleString()}</strong>
+                    </div>
                     <div className="p-1 px-3 flex justify-between text-black">
                       <span>ค่าล่วงเวลาสะสม (OT 1.5)</span>
                       <strong>{empSlip.ot15Wage.toLocaleString()}</strong>
                     </div>
                     <div className="p-1 px-3 flex justify-between text-black">
-                      <span>ค่าทำงานเสาร์/วันหยุด (OT 2.0)</span>
+                      <span>ค่าทำงานวันหยุด</span>
                       <strong>{empSlip.ot20Wage.toLocaleString()}</strong>
                     </div>
                     <div className="p-1 px-3 flex justify-between text-black">
-                      <span>ค่าล่วงเวลาลากหยุด (OT 3.0)</span>
+                      <span>ค่าล่วงเวลาวันหยุด</span>
                       <strong>{empSlip.ot30Wage.toLocaleString()}</strong>
                     </div>
                     {empSlip.transportAllowance > 0 && (
@@ -1694,7 +1771,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                   <div className="border-l border-r border-[#000] divide-y divide-gray-300">
                     <div className="bg-gray-100 p-1.5 font-bold text-center border-b border-gray-400 text-black">รายการหักลบ ณ จ่าย (Deductions)</div>
                     <div className="p-1 px-3 flex justify-between text-black">
-                      <span>ภาษีหัก ณ ที่จ่าย 3%</span>
+                      <span>ภาษี</span>
                       <strong>{empSlip.tax.toLocaleString()}</strong>
                     </div>
                     <div className="p-1 px-3 flex justify-between text-black">
@@ -1744,7 +1821,6 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                     <div className="h-6"></div>
                     <p className="font-bold text-black">(___________________________)</p>
                     <p className="mt-1">ผู้จัดทำ / ฝ่ายการเงิน และบริหารเงินเดือน</p>
-                    <p className="text-[10px] text-gray-400">วันที่โอนจ่าย: {endDate}</p>
                   </div>
                   <div className="border-t border-gray-300 pt-3">
                     <div className="h-6"></div>
@@ -1832,6 +1908,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                       <th className="p-2 border border-slate-400 text-right text-black">ค่าจ้างมูลฐาน</th>
                       <th className="p-2 border border-slate-400 text-right text-black">สะสม OT</th>
                       <th className="p-2 border border-slate-400 text-right text-black">เงินเพิ่มพิเศษ</th>
+                      <th className="p-2 border border-slate-400 text-right text-black font-extrabold bg-slate-50">รายได้รวม</th>
                       <th className="p-2 border border-slate-400 text-right text-black">เงินหักอื่น ๆ</th>
                       <th className="p-2 border border-slate-400 text-right text-black">ภาษี หัก 3%</th>
                       <th className="p-2 border border-slate-400 text-right text-black">หักประกันสังคม (SSO)</th>
@@ -1849,6 +1926,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                         <td className="p-2 border border-slate-300 text-right font-mono">{p.baseNormalPay.toLocaleString()}</td>
                         <td className="p-2 border border-slate-300 text-right font-mono">{(p.ot15Wage + p.ot20Wage + p.ot30Wage).toLocaleString()}</td>
                         <td className="p-2 border border-slate-300 text-right font-mono">{p.extraAllowance.toLocaleString()}</td>
+                        <td className="p-2 border border-slate-300 text-right font-mono font-bold bg-slate-50">{p.totalIncome.toLocaleString()}</td>
                         <td className="p-2 border border-slate-300 text-right font-mono">{p.otherDeduction.toLocaleString()}</td>
                         <td className="p-2 border border-slate-300 text-right font-mono">{p.tax.toLocaleString()}</td>
                         <td className="p-2 border border-slate-300 text-right font-mono">{p.sso.toLocaleString()}</td>
@@ -1867,6 +1945,9 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                       <td className="p-2 border border-slate-400 text-right font-mono text-black">{(totals.ot15 + totals.ot20 + totals.ot30).toLocaleString()}</td>
                       <td className="p-2 border border-slate-400 text-right font-mono text-black">
                         {filteredPayroll.reduce((sum, item) => sum + item.extraAllowance, 0).toLocaleString()}
+                      </td>
+                      <td className="p-2 border border-slate-400 text-right font-mono text-black font-extrabold bg-slate-100">
+                        {totals.gross.toLocaleString()}
                       </td>
                       <td className="p-2 border border-slate-400 text-right font-mono text-black">
                         {filteredPayroll.reduce((sum, item) => sum + item.otherDeduction, 0).toLocaleString()}

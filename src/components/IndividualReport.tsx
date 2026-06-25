@@ -823,6 +823,10 @@ export default function IndividualReport({
     let ot20Sum = 0;
     let ot30Sum = 0;
 
+    let perdiemSum = 0;
+    let advanceSum = 0;
+    let jobBonusSum = 0;
+
     const workedDates = new Set<string>();
 
     tableRows.forEach(row => {
@@ -836,6 +840,13 @@ export default function IndividualReport({
         ot15Sum += draft.ot15Hours || 0;
         ot20Sum += draft.ot20Hours || 0;
         ot30Sum += draft.ot30Hours || 0;
+      }
+
+      const supp = supplements[row.suppKey] || supplements[`${employeeCodeInput}_${row.dStr}`];
+      if (supp) {
+        perdiemSum += Number(supp.perdiem || 0);
+        advanceSum += Number(supp.advance || 0);
+        jobBonusSum += Number(supp.jobBonus || 0);
       }
     });
 
@@ -858,7 +869,9 @@ export default function IndividualReport({
     });
 
     daysWorkedVal = workedDates.size;
-    const otValueTotal = (ot15Sum * 1.5 + ot20Sum * 2.0 + ot30Sum * 3.0) * hourlyRate;
+    const isStaff = activeEmployee?.workScheduleType === 'staff' || activeEmployee?.workScheduleType === 'monthly_worker';
+    const ot20RateActual = isStaff ? 1.0 : (settings?.ot20Rate || 2.0);
+    const otValueTotal = (ot15Sum * 1.5 + ot20Sum * ot20RateActual + ot30Sum * 3.0) * hourlyRate;
 
     const empId = activeEmployee?.id || employeeCodeInput || '';
     const leaveKey = `${empId}_${selectedYear}_${selectedMonth}`;
@@ -872,7 +885,13 @@ export default function IndividualReport({
       daysOnDuty: '—',
       hoursOnDuty: '—',
       totalDayOffOrLeaves: finalLeaves,
-      otValueTotal: Number(otValueTotal.toFixed(2))
+      otValueTotal: Number(otValueTotal.toFixed(2)),
+      ot15Sum,
+      ot20Sum,
+      ot30Sum,
+      perdiemSum,
+      advanceSum,
+      jobBonusSum
     };
   }, [renderedDates, tableRows, supplements, hourlyRate, manualLeaveDays, activeEmployee, employeeCodeInput, selectedYear, selectedMonth]);
 
@@ -886,7 +905,7 @@ export default function IndividualReport({
     let grandPerdiem = 0;
     let grandWelfareTotal = 0;
 
-    const isStaff = activeEmployee?.workScheduleType === 'staff';
+    const isStaff = activeEmployee?.workScheduleType === 'staff' || activeEmployee?.workScheduleType === 'monthly_worker';
 
     tableRows.forEach(row => {
       const { draft, suppKey } = row;
@@ -915,8 +934,9 @@ export default function IndividualReport({
 
       const localHourlyRate = isStaff ? hourlyRate : Number((localDayRate / (settings.defaultWorkHours || 8)).toFixed(2));
 
+      const ot20RateActual = isStaff ? 1.0 : (settings?.ot20Rate || 2.0);
       const normalPay = normHrs * localHourlyRate;
-      const otPay = isOffshore ? 0 : (itemOt15 * 1.5 + itemOt20 * 2.0 + itemOt30 * 3.0) * localHourlyRate;
+      const otPay = isOffshore ? 0 : (itemOt15 * 1.5 + itemOt20 * ot20RateActual + itemOt30 * 3.0) * localHourlyRate;
       const combinedWageOt = normalPay + otPay;
 
       const confineVal = Number(supp.confineSpace || 0);
@@ -1019,6 +1039,10 @@ export default function IndividualReport({
     let ot20Sum = 0;
     let ot30Sum = 0;
 
+    let perdiemSum = 0;
+    let advanceSum = 0;
+    let jobBonusSum = 0;
+
     renderedDates.forEach(dStr => {
       // Find all entries for this date
       const dayDrafts = ((emp.employeeName.toLowerCase().trim() === selectedEmpName.toLowerCase().trim()
@@ -1037,6 +1061,27 @@ export default function IndividualReport({
             ot15Sum += draft.ot15Hours || 0;
             ot20Sum += draft.ot20Hours || 0;
             ot30Sum += draft.ot30Hours || 0;
+          }
+        });
+      }
+
+      // Sum supplements for all drafts of this day or fallback to the general day supplement key
+      if (dayDrafts.length === 0) {
+        const rowKey = `${emp.id}_${dStr}_draft-${dStr}`;
+        const supp = supplements[rowKey] || supplements[`${emp.id}_${dStr}`];
+        if (supp) {
+          perdiemSum += Number(supp.perdiem || 0);
+          advanceSum += Number(supp.advance || 0);
+          jobBonusSum += Number(supp.jobBonus || 0);
+        }
+      } else {
+        dayDrafts.forEach(draft => {
+          const rowKey = draft.id ? `${emp.id}_${dStr}_${draft.id}` : `${emp.id}_${dStr}`;
+          const supp = supplements[rowKey] || supplements[`${emp.id}_${dStr}`];
+          if (supp) {
+            perdiemSum += Number(supp.perdiem || 0);
+            advanceSum += Number(supp.advance || 0);
+            jobBonusSum += Number(supp.jobBonus || 0);
           }
         });
       }
@@ -1067,7 +1112,13 @@ export default function IndividualReport({
       daysOnDuty: '—',
       hoursOnDuty: '—',
       totalDayOffOrLeaves: finalLeaves,
-      otValueTotal: Number(otValueTotal.toFixed(2))
+      otValueTotal: Number(otValueTotal.toFixed(2)),
+      ot15Sum,
+      ot20Sum,
+      ot30Sum,
+      perdiemSum,
+      advanceSum,
+      jobBonusSum
     };
   };
 
@@ -1110,7 +1161,9 @@ export default function IndividualReport({
       const itemOt15 = draft.ot15Hours || 0;
       const itemOt20 = draft.ot20Hours || 0;
       const itemOt30 = draft.ot30Hours || 0;
-      const otValueVal = (itemOt15 * 1.5 + itemOt20 * 2.0 + itemOt30 * 3.0) * hourlyRate;
+      const isStaff = activeEmployee?.workScheduleType === 'staff' || activeEmployee?.workScheduleType === 'monthly_worker';
+      const ot20RateActual = isStaff ? 1.0 : (settings?.ot20Rate || 2.0);
+      const otValueVal = (itemOt15 * 1.5 + itemOt20 * ot20RateActual + itemOt30 * 3.0) * hourlyRate;
 
       // Find public holiday
       const holidayCheck = holidays.find(h => h.holidayDate === dStr);
@@ -1206,11 +1259,12 @@ export default function IndividualReport({
         localDayRate = activeEmployee?.wfhRate || 0;
       }
 
-      const isStaff = activeEmployee?.workScheduleType === 'staff';
+      const isStaff = activeEmployee?.workScheduleType === 'staff' || activeEmployee?.workScheduleType === 'monthly_worker';
       const localHourlyRate = isStaff ? hourlyRate : Number((localDayRate / (settings.defaultWorkHours || 8)).toFixed(2));
 
+      const ot20RateActual = isStaff ? 1.0 : (settings?.ot20Rate || 2.0);
       const normalPay = normHrs * localHourlyRate;
-      const otPay = isOffshore ? 0 : (itemOt15 * 1.5 + itemOt20 * 2.0 + itemOt30 * 3.0) * localHourlyRate;
+      const otPay = isOffshore ? 0 : (itemOt15 * 1.5 + itemOt20 * ot20RateActual + itemOt30 * 3.0) * localHourlyRate;
       const combinedWageOt = normalPay + otPay;
 
       const confineVal = Number(supp.confineSpace || 0);
@@ -1952,7 +2006,7 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
                     <th className="py-2.5 px-1.5 w-[100px] shrink-0" rowSpan={2}>Day</th>
                     <th className="py-2.5 px-0.5 w-[65px] shrink-0" rowSpan={2}>Date</th>
                     <th className="py-1.5 px-1 uppercase tracking-wider text-[9px] bg-slate-50" colSpan={3}>Working Time</th>
-                    <th className="py-1.5 px-1 uppercase tracking-wider text-[9px] bg-slate-50" colSpan={4}>Overtime</th>
+                    <th className="py-1.5 px-1 uppercase tracking-wider text-[9px] bg-slate-50" colSpan={3}>Overtime</th>
                     <th className="py-2 px-1 text-[9px] w-[75px]" rowSpan={2}>Perdiem<br/><span className="text-[7.5px] font-sans">/ Travel Exp</span></th>
                     <th className="py-2 px-1 text-[9px] w-[65px]" rowSpan={2}>Confine /<br/>Other</th>
                     <th className="py-2 px-1 text-[9px] w-[65px]" rowSpan={2}>Incentive</th>
@@ -1966,7 +2020,6 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
                     <th className="py-1 px-1 w-[35px] text-emerald-700">1.0</th>
                     <th className="py-1 px-1 w-[35px] text-amber-700">1.5</th>
                     <th className="py-1 px-1 w-[35px] text-red-700">3.0</th>
-                    <th className="py-1 px-1 w-[70px] text-slate-800 font-sans">Value</th>
                   </tr>
                 </thead>
 
@@ -1992,7 +2045,9 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
                     const itemOt15 = draft.ot15Hours || 0;
                     const itemOt20 = draft.ot20Hours || 0;
                     const itemOt30 = draft.ot30Hours || 0;
-                    const otDecimalEst = (itemOt15 * 1.5 + itemOt20 * 2.0 + itemOt30 * 3.0);
+                    const isStaff = activeEmployee?.workScheduleType === 'staff' || activeEmployee?.workScheduleType === 'monthly_worker';
+                    const ot20RateActual = isStaff ? 1.0 : (settings?.ot20Rate || 2.0);
+                    const otDecimalEst = (itemOt15 * 1.5 + itemOt20 * ot20RateActual + itemOt30 * 3.0);
                     const otWageEstimated = otDecimalEst * hourlyRate;
 
                     // Styles for Saturday / Sunday / Holiday matching image perfectly
@@ -2131,15 +2186,6 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
                           )}
                         </td>
 
-                        {/* Calculated Value Pay */}
-                        <td className="py-1 px-0.5 font-mono text-right font-bold text-slate-705 bg-slate-50/20 pr-1">
-                          {otWageEstimated > 0 ? (
-                            <span>{otWageEstimated.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</span>
-                          ) : (
-                            <span className="text-slate-300 font-normal pr-1">—</span>
-                          )}
-                        </td>
-
                         {/* Perdiem Allowances Input */}
                         <td className="py-0.5 px-0.5">
                           <input
@@ -2211,55 +2257,28 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
                     </td>
 
                     <td className="py-2.5 px-1 text-center font-mono">
-                      {(() => {
-                        const sum = renderedDates.reduce((acc, dStr) => acc + (draftEntries[dStr]?.ot20Hours || 0), 0);
-                        return sum > 0 ? sum.toFixed(1) : '—';
-                      })()}
+                      {computedSheetStats.ot20Sum > 0 ? computedSheetStats.ot20Sum.toFixed(1) : '—'}
                     </td>
                     <td className="py-2.5 px-1 text-center font-mono text-amber-800">
-                      {(() => {
-                        const sum = renderedDates.reduce((acc, dStr) => acc + (draftEntries[dStr]?.ot15Hours || 0), 0);
-                        return sum > 0 ? sum.toFixed(1) : '—';
-                      })()}
+                      {computedSheetStats.ot15Sum > 0 ? computedSheetStats.ot15Sum.toFixed(1) : '—'}
                     </td>
                     <td className="py-2.5 px-1 text-center font-mono text-red-750">
-                      {(() => {
-                        const sum = renderedDates.reduce((acc, dStr) => acc + (draftEntries[dStr]?.ot30Hours || 0), 0);
-                        return sum > 0 ? sum.toFixed(1) : '—';
-                      })()}
-                    </td>
-
-                    {/* Grand Value sum */}
-                    <td className="py-2.5 px-1 text-right font-mono pr-1 text-[11.5px] text-slate-900 bg-slate-50">
-                      {computedSheetStats.otValueTotal > 0 ? (
-                        <span>{computedSheetStats.otValueTotal.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</span>
-                      ) : (
-                        <span>—</span>
-                      )}
+                      {computedSheetStats.ot30Sum > 0 ? computedSheetStats.ot30Sum.toFixed(1) : '—'}
                     </td>
 
                     {/* Total Perdiem column sum */}
                     <td className="py-2.5 px-1 text-right font-mono text-[11px] pr-1">
-                      {renderedDates.reduce((acc, dStr) => {
-                        const key = `${employeeCodeInput}_${dStr}`;
-                        return acc + (supplements[key]?.perdiem || 0);
-                      }, 0).toLocaleString()}
+                      {computedSheetStats.perdiemSum > 0 ? computedSheetStats.perdiemSum.toLocaleString() : '—'}
                     </td>
 
                     {/* Total Advance column sum */}
                     <td className="py-2.5 px-1 text-right font-mono text-[11px] pr-1">
-                      {renderedDates.reduce((acc, dStr) => {
-                        const key = `${employeeCodeInput}_${dStr}`;
-                        return acc + (supplements[key]?.advance || 0);
-                      }, 0).toLocaleString()}
+                      {computedSheetStats.advanceSum > 0 ? computedSheetStats.advanceSum.toLocaleString() : '—'}
                     </td>
 
                     {/* Total Bonus column sum */}
                     <td className="py-2.5 px-1 text-right font-mono text-[11px] pr-1">
-                      {renderedDates.reduce((acc, dStr) => {
-                        const key = `${employeeCodeInput}_${dStr}`;
-                        return acc + (supplements[key]?.jobBonus || 0);
-                      }, 0).toLocaleString()}
+                      {computedSheetStats.jobBonusSum > 0 ? computedSheetStats.jobBonusSum.toLocaleString() : '—'}
                     </td>
 
                     {/* Blank under Remark */}
@@ -2567,7 +2586,7 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
                     const isPubHoliday = !!optHoliday;
 
                     // Compute specific OT Value and daily rate pay
-                    const isStaff = activeEmployee?.workScheduleType === 'staff';
+                    const isStaff = activeEmployee?.workScheduleType === 'staff' || activeEmployee?.workScheduleType === 'monthly_worker';
                     let localDayRate = activeEmployee?.workshopRate || 0;
                     const proj = (draft.project || '').toLowerCase().trim();
                     const isOffshore = proj.includes('offshore');
@@ -2588,7 +2607,8 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
                     const itemOt15 = draft.ot15Hours || 0;
                     const itemOt20 = draft.ot20Hours || 0;
                     const itemOt30 = draft.ot30Hours || 0;
-                    const otPay = isOffshore ? 0 : (itemOt15 * 1.5 + itemOt20 * 2.0 + itemOt30 * 3.0) * localHourlyRate;
+                    const ot20RateActual = isStaff ? 1.0 : (settings?.ot20Rate || 2.0);
+                    const otPay = isOffshore ? 0 : (itemOt15 * 1.5 + itemOt20 * ot20RateActual + itemOt30 * 3.0) * localHourlyRate;
                     
                     const normalPay = (draft.normalHours || 0) * localHourlyRate;
                     const combWageOt = normalPay + otPay;
@@ -3069,20 +3089,19 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
                       <th className="py-1 px-1 w-[40px]" rowSpan={2}>Day</th>
                       <th className="py-1 px-0.5 w-[48px]" rowSpan={2}>Date</th>
                       <th className="py-0.5 px-0.5 bg-slate-50 font-mono" colSpan={3}>Working Time</th>
-                      <th className="py-0.5 px-0.5 bg-slate-50 font-mono" colSpan={4}>Overtime</th>
+                      <th className="py-0.5 px-0.5 bg-slate-50 font-mono" colSpan={3}>Overtime</th>
                       <th className="py-1 px-0.5 text-[7.5px] w-[45px]" rowSpan={2}>Perdiem</th>
                       <th className="py-1 px-0.5 text-[7.5px] w-[40px]" rowSpan={2}>Confine /<br/>Other</th>
                       <th className="py-1 px-0.5 text-[7.5px] w-[40px]" rowSpan={2}>Incentive</th>
                       <th className="py-1 px-1 w-[69px]" rowSpan={2}>Job Ref</th>
                     </tr>
-                    <tr className="divide-x divide-slate-400 font-sans text-[7.5px] select-none text-slate-800">
+                    <tr className="divide-x divide-slate-440 divide-slate-400 font-sans text-[7.5px] select-none text-slate-800">
                       <th className="py-0.5 px-0.5 w-[30px] font-mono">Start</th>
                       <th className="py-0.5 px-0.5 w-[30px] font-mono">End</th>
                       <th className="py-0.5 px-0.5 w-[25px] text-sky-700">Total</th>
                       <th className="py-0.5 px-0.5 w-[22px] text-emerald-700">1.0</th>
                       <th className="py-0.5 px-0.5 w-[22px] text-amber-700">1.5</th>
                       <th className="py-0.5 px-0.5 w-[22px] text-red-700">3.0</th>
-                      <th className="py-0.5 px-0.5 bg-slate-50 w-[40px]">Value</th>
                     </tr>
                   </thead>
 
@@ -3105,7 +3124,9 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
                       const itemOt15 = draft.ot15Hours || 0;
                       const itemOt20 = draft.ot20Hours || 0;
                       const itemOt30 = draft.ot30Hours || 0;
-                      const otDecimalEst = (itemOt15 * 1.5 + itemOt20 * 2.0 + itemOt30 * 3.0);
+                      const isStaff = emp.workScheduleType === 'staff' || emp.workScheduleType === 'monthly_worker';
+                      const ot20RateActual = isStaff ? 1.0 : (settings?.ot20Rate || 2.0);
+                      const otDecimalEst = (itemOt15 * 1.5 + itemOt20 * ot20RateActual + itemOt30 * 3.0);
                       const otWageEstimated = otDecimalEst * empHourlyRate;
 
                       let rowBgClass = 'bg-white';
@@ -3173,9 +3194,6 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
                           <td className="py-0.5 px-0.2 font-mono font-medium text-red-650 text-[7.5px]">
                             {(draft.timeIn && draft.timeOut) ? (itemOt30 > 0 ? itemOt30.toFixed(1) : '—') : '—'}
                           </td>
-                          <td className="py-0.5 px-0.2 font-mono text-right font-bold text-slate-800 pr-0.5">
-                            {otWageEstimated > 0 ? otWageEstimated.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '—'}
-                          </td>
                           <td className="py-0.5 px-0.2 text-right font-mono font-bold text-[7.5px] pr-0.5">
                             {supp.perdiem > 0 ? supp.perdiem.toLocaleString() : '—'}
                           </td>
@@ -3203,43 +3221,22 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
                         {stats.hoursWorked.toFixed(1)}
                       </td>
                       <td className="py-1 px-0.2 text-center font-mono font-bold">
-                        {(() => {
-                          const sum = getEmpTableRows(emp.employeeName, empId).reduce((acc, r) => acc + (r.draft.ot20Hours || 0), 0);
-                          return sum > 0 ? sum.toFixed(1) : '—';
-                        })()}
+                        {stats.ot20Sum > 0 ? stats.ot20Sum.toFixed(1) : '—'}
                       </td>
                       <td className="py-1 px-0.2 text-center font-mono text-amber-800">
-                        {(() => {
-                          const sum = getEmpTableRows(emp.employeeName, empId).reduce((acc, r) => acc + (r.draft.ot15Hours || 0), 0);
-                          return sum > 0 ? sum.toFixed(1) : '—';
-                        })()}
+                        {stats.ot15Sum > 0 ? stats.ot15Sum.toFixed(1) : '—'}
                       </td>
                       <td className="py-1 px-0.2 text-center font-mono text-red-750">
-                        {(() => {
-                          const sum = getEmpTableRows(emp.employeeName, empId).reduce((acc, r) => acc + (r.draft.ot30Hours || 0), 0);
-                          return sum > 0 ? sum.toFixed(1) : '—';
-                        })()}
-                      </td>
-                      <td className="py-1 px-0.2 text-right font-mono font-extrabold pr-0.5 text-[#0F766E] bg-emerald-50/40">
-                        {stats.otValueTotal > 0 ? stats.otValueTotal.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '—'}
+                        {stats.ot30Sum > 0 ? stats.ot30Sum.toFixed(1) : '—'}
                       </td>
                       <td className="py-1 px-0.2 text-right font-mono font-bold pr-0.5 bg-slate-50/40">
-                        {(() => {
-                          const sum = getEmpTableRows(emp.employeeName, empId).reduce((acc, r) => acc + ((supplements[r.suppKey] || supplements[`${empId}_${r.dStr}`])?.perdiem || 0), 0);
-                          return sum > 0 ? sum.toLocaleString() : '—';
-                        })()}
+                        {stats.perdiemSum > 0 ? stats.perdiemSum.toLocaleString() : '—'}
                       </td>
                       <td className="py-1 px-0.2 text-right font-mono pr-0.5">
-                        {(() => {
-                          const sum = getEmpTableRows(emp.employeeName, empId).reduce((acc, r) => acc + ((supplements[r.suppKey] || supplements[`${empId}_${r.dStr}`])?.advance || 0), 0);
-                          return sum > 0 ? sum.toLocaleString() : '—';
-                        })()}
+                        {stats.advanceSum > 0 ? stats.advanceSum.toLocaleString() : '—'}
                       </td>
                       <td className="py-1 px-0.2 text-right font-mono font-bold pr-0.5">
-                        {(() => {
-                          const sum = getEmpTableRows(emp.employeeName, empId).reduce((acc, r) => acc + ((supplements[r.suppKey] || supplements[`${empId}_${r.dStr}`])?.jobBonus || 0), 0);
-                          return sum > 0 ? sum.toLocaleString() : '—';
-                        })()}
+                        {stats.jobBonusSum > 0 ? stats.jobBonusSum.toLocaleString() : '—'}
                       </td>
                       <td className="py-1 px-0.5 bg-slate-100 italic font-medium text-[7px] text-slate-500 truncate">
                         IKM SIG
