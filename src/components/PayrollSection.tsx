@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Employee, TimesheetEntry, SystemSettings } from '../types';
 import { 
   CreditCard, Download, Search, Settings, Calendar, 
@@ -1351,7 +1352,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
       )}
 
       {/* SLIP MODAL DIALOG PREVIEW CONTAINER */}
-      {activeSlip && (
+      {activeSlip && createPortal(
         <div id="single-slip-modal-backdrop" className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div id="single-slip-modal-content" className="bg-[#141414] border border-white/20 rounded max-w-2xl w-full p-6 space-y-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
             {/* Header controls for Modal */}
@@ -1541,13 +1542,18 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
               ออกแบบรองรับสัดส่วนเอกสาร A5 หรือ carbon slip ได้อย่างประณีต
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* CUSTOM PRINT MEDIA STYLES INJECTED DYNAMICALLY */}
       {(printMode !== null || selectedSlipEmpId !== null) && (
         <style dangerouslySetInnerHTML={{ __html: `
           @media print {
+            @page {
+              size: A4 portrait;
+              margin: 8mm 8mm 8mm 8mm !important;
+            }
             body {
               background: white !important;
               color: black !important;
@@ -1555,29 +1561,39 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
               padding: 0 !important;
             }
             
-            /* Hide other siblings of our print containers inside root */
-            #root > *:not(#single-slip-modal-backdrop):not(#print-backdrop-container) {
+            /* Hide the main React app container entirely to avoid blank space/clipping */
+            #root {
               display: none !important;
               visibility: hidden !important;
             }
             
-            /* Unconstrain single slip modal wrapper and backdrop during print to prevent clipping */
-            #single-slip-modal-backdrop {
-              position: static !important;
+            /* Display our portaled printable backdrops instead */
+            #single-slip-modal-backdrop,
+            #print-backdrop-container {
               display: block !important;
-              background: transparent !important;
+              visibility: visible !important;
+              position: absolute !important;
+              left: 0 !important;
+              top: 0 !important;
+              width: 100% !important;
+              height: auto !important;
+              background: white !important;
+              box-shadow: none !important;
+              border: none !important;
               padding: 0 !important;
               margin: 0 !important;
               overflow: visible !important;
-              width: 100% !important;
-              height: auto !important;
-              max-height: none !important;
-              box-shadow: none !important;
             }
+
+            #single-slip-modal-backdrop *,
+            #print-backdrop-container * {
+              visibility: visible !important;
+            }
+
             #single-slip-modal-content {
-              position: static !important;
+              position: relative !important;
               display: block !important;
-              background: transparent !important;
+              background: white !important;
               border: none !important;
               box-shadow: none !important;
               padding: 0 !important;
@@ -1586,7 +1602,6 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
               width: 100% !important;
               max-width: none !important;
               height: auto !important;
-              max-height: none !important;
             }
 
             /* Single slip layout style optimized for exactly one A4 page without clipping */
@@ -1607,19 +1622,6 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
             }
 
             /* Styles for bulk printing container */
-            #print-backdrop-container {
-              display: block !important;
-              position: absolute !important;
-              left: 0 !important;
-              top: 0 !important;
-              width: 100% !important;
-              background: white !important;
-              color: black !important;
-              margin: 0 !important;
-              padding: 0 !important;
-              overflow: visible !important;
-              height: auto !important;
-            }
             #print-root-content {
               display: flex !important;
               flex-direction: column !important;
@@ -1659,7 +1661,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
       )}
 
       {/* ALL SLIPS BATCH PRINT VIEW OVERLAY */}
-      {printMode === 'all_slips' && (
+      {printMode === 'all_slips' && createPortal(
         <div id="print-backdrop-container" className="fixed inset-0 bg-[#0c0d0e] z-50 overflow-y-auto flex flex-col items-center p-6 space-y-6">
           {/* Top Control panel */}
           <div className="bg-[#181a1c]/95 border border-white/10 p-4 rounded shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between w-full max-w-5xl gap-4 sticky top-0 z-50 print-hidden">
@@ -1863,7 +1865,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
       )}
 
       {/* CORE MATRIX LIST PRINT OVERLAY */}
-      {printMode === 'core_matrix' && (
+      {printMode === 'core_matrix' && createPortal(
         <div id="print-backdrop-container" className="fixed inset-0 bg-[#0c0d0e] z-50 overflow-y-auto flex flex-col items-center p-6 space-y-6">
           {/* Top Control panel */}
           <div className="bg-[#181a1c]/95 border border-white/10 p-4 rounded shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between w-full max-w-6xl gap-4 sticky top-0 z-50 print-hidden">
@@ -2011,7 +2013,8 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
