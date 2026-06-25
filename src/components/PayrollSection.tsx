@@ -1398,7 +1398,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                 <div className="text-right font-sans">
                   <h4 className="text-xs font-bold uppercase tracking-widest text-amber-600 dark:text-[#D4AF37]">ใบแจ้งยอดเงินเดือนและค่าตอบแทนทำงาน</h4>
                   <p className="text-[9px] text-gray-500 font-mono">
-                    ช่วงวันที่ <span className="font-bold underline text-black">{startDate}</span> ถึง <span className="font-bold underline text-black">{endDate}</span>
+                   ค่าล่วงเวลา ช่วงวันที่ <span className="font-bold underline text-black">{startDate}</span> ถึง <span className="font-bold underline text-black">{endDate}</span>
                   </p>
                 </div>
               </div>
@@ -1569,7 +1569,8 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
             
             /* Display our portaled printable backdrops instead */
             #single-slip-modal-backdrop,
-            #print-backdrop-container {
+            #all-slips-print-backdrop-container,
+            #core-matrix-print-backdrop-container {
               display: block !important;
               visibility: visible !important;
               position: absolute !important;
@@ -1586,7 +1587,8 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
             }
 
             #single-slip-modal-backdrop *,
-            #print-backdrop-container * {
+            #all-slips-print-backdrop-container *,
+            #core-matrix-print-backdrop-container * {
               visibility: visible !important;
             }
 
@@ -1622,6 +1624,8 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
             }
 
             /* Styles for bulk printing container */
+            #all-slips-print-root-content,
+            #core-matrix-print-root-content,
             #print-root-content {
               display: flex !important;
               flex-direction: column !important;
@@ -1662,7 +1666,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
 
       {/* ALL SLIPS BATCH PRINT VIEW OVERLAY */}
       {printMode === 'all_slips' && createPortal(
-        <div id="print-backdrop-container" className="fixed inset-0 bg-[#0c0d0e] z-50 overflow-y-auto flex flex-col items-center p-6 space-y-6">
+        <div id="all-slips-print-backdrop-container" className="fixed inset-0 bg-[#0c0d0e] z-50 overflow-y-auto flex flex-col items-center p-6 space-y-6">
           {/* Top Control panel */}
           <div className="bg-[#181a1c]/95 border border-white/10 p-4 rounded shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between w-full max-w-5xl gap-4 sticky top-0 z-50 print-hidden">
             <div className="flex items-center gap-3">
@@ -1692,7 +1696,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
           </div>
 
           {/* Staged sheets list */}
-          <div id="print-root-content" className="w-full flex flex-col gap-8 items-center pb-20">
+          <div id="all-slips-print-root-content" className="w-full flex flex-col gap-8 items-center pb-20">
             {filteredPayroll.map((empSlip, idx) => (
               <div
                 key={empSlip.id}
@@ -1866,7 +1870,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
 
       {/* CORE MATRIX LIST PRINT OVERLAY */}
       {printMode === 'core_matrix' && createPortal(
-        <div id="print-backdrop-container" className="fixed inset-0 bg-[#0c0d0e] z-50 overflow-y-auto flex flex-col items-center p-6 space-y-6">
+        <div id="core-matrix-print-backdrop-container" className="fixed inset-0 bg-[#0c0d0e] z-50 overflow-y-auto flex flex-col items-center p-6 space-y-6">
           {/* Top Control panel */}
           <div className="bg-[#181a1c]/95 border border-white/10 p-4 rounded shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between w-full max-w-6xl gap-4 sticky top-0 z-50 print-hidden">
             <div className="flex items-center gap-3">
@@ -1896,7 +1900,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
           </div>
 
           {/* Core Matrix Report Sheet staged page */}
-          <div id="print-root-content" className="w-full flex justify-center pb-20">
+          <div id="core-matrix-print-root-content" className="w-full flex justify-center pb-20">
             <div className="bg-white text-black p-10 shadow-2xl border border-gray-350 rounded-sm w-full max-w-[297mm] font-sans text-left">
               {/* Header */}
               <div className="flex items-center justify-between pb-5 border-b-2 border-slate-900 mb-6 md:flex-row flex-col gap-4">
