@@ -1,5 +1,102 @@
 import { Holiday, CalculationResult, TimesheetEntry, Employee } from '../types';
 
+export function findEmployeeMatch(inputName: string, employees: Employee[]): Employee | undefined {
+  if (!inputName) return undefined;
+
+  const cleanInput = inputName.trim().toUpperCase().replace(/\s+/g, ' ');
+  if (!cleanInput) return undefined;
+
+  // 1. Try exact ID match (e.g. "EMP032" or "EMP-032")
+  const idMatch = employees.find(emp => {
+    const cleanId = emp.id.trim().toUpperCase();
+    return cleanId === cleanInput || cleanId === cleanInput.replace(/[-_]/g, '');
+  });
+  if (idMatch) return idMatch;
+
+  // 2. Try exact name match (normalized spaces)
+  const exactNameMatch = employees.find(emp => {
+    const cleanTarget = emp.employeeName.trim().toUpperCase().replace(/\s+/g, ' ');
+    return cleanTarget === cleanInput;
+  });
+  if (exactNameMatch) return exactNameMatch;
+
+  // 3. Try checking if ID is embedded in the input (e.g., "EMP032 ANAN KHOTSOMBAT" or "EMP032 - ANAN")
+  const idEmbeddedMatch = employees.find(emp => {
+    const cleanId = emp.id.trim().toUpperCase();
+    return cleanInput.includes(cleanId);
+  });
+  if (idEmbeddedMatch) return idEmbeddedMatch;
+
+  // 4. Try matching first name AND last name parts with word boundaries
+  const inputWords = cleanInput.split(' ').filter(w => w.length > 0);
+  if (inputWords.length > 0) {
+    // Score each employee based on how well their name matches the input words
+    let bestMatch: Employee | undefined = undefined;
+    let highestScore = 0;
+
+    for (const emp of employees) {
+      const targetWords = emp.employeeName.trim().toUpperCase().replace(/\s+/g, ' ').split(' ');
+      
+      // Calculate how many input words match target words exactly or as prefixes
+      let score = 0;
+      let matchedAll = true;
+
+      for (const inWord of inputWords) {
+        let wordMatched = false;
+        for (const tWord of targetWords) {
+          if (tWord === inWord) {
+            score += 10; // Exact word match
+            wordMatched = true;
+          } else if (tWord.startsWith(inWord) || inWord.startsWith(tWord)) {
+            score += 5; // Prefix or partial word match
+            wordMatched = true;
+          }
+        }
+        if (!wordMatched) {
+          matchedAll = false;
+        }
+      }
+
+      // Bonus if first word (first name) matches exactly
+      if (targetWords[0] === inputWords[0]) {
+        score += 8;
+      } else if (targetWords[0] && inputWords[0] && (targetWords[0].startsWith(inputWords[0]) || inputWords[0].startsWith(targetWords[0]))) {
+        score += 3;
+      }
+
+      // Bonus for name length similarity or exact matching count
+      if (matchedAll) {
+        score += 4;
+      }
+
+      if (score > highestScore) {
+        highestScore = score;
+        bestMatch = emp;
+      } else if (score === highestScore && score > 0) {
+        // Tie-breaker: favor exact first-word match
+        if (bestMatch) {
+          const prevFirstWord = bestMatch.employeeName.trim().toUpperCase().split(' ')[0];
+          const currFirstWord = emp.employeeName.trim().toUpperCase().split(' ')[0];
+          if (currFirstWord === inputWords[0] && prevFirstWord !== inputWords[0]) {
+            bestMatch = emp;
+          }
+        }
+      }
+    }
+
+    // Only return if we have a reasonably strong match (e.g., score >= 5)
+    if (highestScore >= 5) {
+      return bestMatch;
+    }
+  }
+
+  // 5. Ultimate fallback - loose substring match
+  return employees.find(emp => {
+    const normTarget = emp.employeeName.trim().toUpperCase();
+    return normTarget.includes(cleanInput) || cleanInput.includes(normTarget);
+  });
+}
+
 export function parseTimeToDecimal(timeStr: string): number {
   if (!timeStr || !timeStr.trim()) return 0;
   const parts = timeStr.trim().split(':');
@@ -258,9 +355,24 @@ export function rebalanceTimesheetEntries(
   employees: Employee[],
   holidays: Holiday[]
 ): TimesheetEntry[] {
+  // Deduplicate entries by ID to avoid duplicates in state
+  const uniqueInput: TimesheetEntry[] = [];
+  const seenIds = new Set<string>();
+  allEntries.forEach(entry => {
+    if (!entry) return;
+    const entryId = entry.id || `${entry.employeeName}_${entry.date}_${entry.timeIn}_${entry.timeOut}_${Math.random().toString(36).substring(2, 9)}`;
+    if (!seenIds.has(entryId)) {
+      seenIds.add(entryId);
+      uniqueInput.push({
+        ...entry,
+        id: entryId
+      });
+    }
+  });
+
   // Group entries by employeeName (case-insensitive) and date
   const groups: Record<string, TimesheetEntry[]> = {};
-  allEntries.forEach(entry => {
+  uniqueInput.forEach(entry => {
     if (!entry.employeeName || !entry.date) return;
     const key = `${entry.employeeName.trim().toUpperCase()}_${entry.date}`;
     if (!groups[key]) groups[key] = [];
@@ -284,11 +396,7 @@ export function rebalanceTimesheetEntries(
     });
 
     const firstEntry = sorted[0];
-    const employee = employees.find(emp => {
-      const normTarget = emp.employeeName.trim().toUpperCase();
-      const normInput = firstEntry.employeeName.trim().toUpperCase();
-      return normTarget === normInput || normTarget.includes(normInput) || normInput.includes(normTarget);
-    });
+    const employee = findEmployeeMatch(firstEntry.employeeName, employees);
 
     const isFlat = employee?.isFlatRate || false;
     const workType = employee?.workScheduleType;

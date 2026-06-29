@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { TimesheetEntry, Employee, Holiday } from '../types';
-import { calculateEntryOT, getDayOfWeek, isHoliday, formatThaiDate } from '../utils/calculator';
+import { calculateEntryOT, getDayOfWeek, isHoliday, formatThaiDate, findEmployeeMatch } from '../utils/calculator';
 import { 
   FileSpreadsheet, Plus, Trash2, Edit2, Check, X, FileUp, 
   Download, Filter, Search, Eye, AlertCircle, RefreshCw, BookmarkCheck
@@ -442,11 +442,7 @@ export default function TimesheetTable({
         const standardTimeOut = formatTime(timeOut);
 
         // Fetch user default FlatRate if applicable
-        const matchedEmp = employees.find(emp => {
-          const normTarget = emp.employeeName.trim().toUpperCase();
-          const normInput = empName.trim().toUpperCase();
-          return normTarget === normInput || normTarget.includes(normInput) || normInput.includes(normTarget);
-        });
+        const matchedEmp = findEmployeeMatch(empName, employees);
         const isFlat = matchedEmp?.isFlatRate || false;
 
         // Run calculation

@@ -193,6 +193,37 @@ export default function IndividualReport({
     }
   });
 
+  // Per-employee Location and Project overrides
+  const [empLocations, setEmpLocations] = useState<Record<string, string>>(() => {
+    const data: Record<string, string> = {};
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('timesheet_loc_')) {
+          const empId = key.substring('timesheet_loc_'.length);
+          const val = localStorage.getItem(key);
+          if (val !== null) data[empId] = val;
+        }
+      }
+    } catch {}
+    return data;
+  });
+
+  const [empProjects, setEmpProjects] = useState<Record<string, string>>(() => {
+    const data: Record<string, string> = {};
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('timesheet_proj_')) {
+          const empId = key.substring('timesheet_proj_'.length);
+          const val = localStorage.getItem(key);
+          if (val !== null) data[empId] = val;
+        }
+      }
+    } catch {}
+    return data;
+  });
+
   // Auto select first employee if empty
   useEffect(() => {
     if (!selectedEmpName && employees.length > 0) {
@@ -248,8 +279,39 @@ export default function IndividualReport({
     if (activeEmployee) {
       setPositionInput(activeEmployee.position || '');
       setEmployeeCodeInput(activeEmployee.id || '');
+      
+      // Load saved Location and Project for this employee from state/localStorage
+      const savedLoc = empLocations[activeEmployee.id] !== undefined 
+        ? empLocations[activeEmployee.id] 
+        : (localStorage.getItem(`timesheet_loc_${activeEmployee.id}`) !== null 
+           ? localStorage.getItem(`timesheet_loc_${activeEmployee.id}`)! 
+           : 'IKM Office');
+      setLocationInput(savedLoc);
+      
+      const savedProj = empProjects[activeEmployee.id] !== undefined 
+        ? empProjects[activeEmployee.id] 
+        : (localStorage.getItem(`timesheet_proj_${activeEmployee.id}`) !== null 
+           ? localStorage.getItem(`timesheet_proj_${activeEmployee.id}`)! 
+           : '');
+      setProjectInput(savedProj);
     }
-  }, [activeEmployee]);
+  }, [activeEmployee, empLocations, empProjects]);
+
+  const handleLocationChange = (val: string) => {
+    setLocationInput(val);
+    if (activeEmployee) {
+      setEmpLocations(prev => ({ ...prev, [activeEmployee.id]: val }));
+      localStorage.setItem(`timesheet_loc_${activeEmployee.id}`, val);
+    }
+  };
+
+  const handleProjectChange = (val: string) => {
+    setProjectInput(val);
+    if (activeEmployee) {
+      setEmpProjects(prev => ({ ...prev, [activeEmployee.id]: val }));
+      localStorage.setItem(`timesheet_proj_${activeEmployee.id}`, val);
+    }
+  };
 
   // Synchronize Monthly View dropdowns -> startDate & endDate (21st of previous month to 20th of chosen month)
   useEffect(() => {
@@ -376,7 +438,7 @@ export default function IndividualReport({
       }
     });
     setDraftEntries(initialDrafts);
-  }, [selectedEmpName, startDate, endDate, filteredEntries, activeEmployee, projectInput]);
+  }, [selectedEmpName, startDate, endDate, filteredEntries, activeEmployee]);
 
   // Calculate Employee standard hourly rate
   const hourlyRate = useMemo(() => {
@@ -795,8 +857,8 @@ export default function IndividualReport({
         });
       } else {
         const isMulti = dayDrafts.length > 1;
-        dayDrafts.forEach(draft => {
-          const rowId = draft.id || dStr;
+        dayDrafts.forEach((draft, idx) => {
+          const rowId = draft.id ? (isMulti ? `${draft.id}_${idx}` : draft.id) : `${dStr}_${idx}`;
           const suppKey = `${employeeCodeInput}_${dStr}_${rowId}`;
           list.push({
             draft,
@@ -1959,7 +2021,7 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
                   <input
                     type="text"
                     value={locationInput}
-                    onChange={(e) => setLocationInput(e.target.value)}
+                    onChange={(e) => handleLocationChange(e.target.value)}
                     className="border-b border-dashed border-slate-900 pb-0.5 w-full font-bold bg-transparent text-slate-900 text-xs focus:outline-hidden pl-1 hover:bg-slate-50 print:border-b"
                   />
                 </div>
@@ -1987,7 +2049,7 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
                   <input
                     type="text"
                     value={projectInput}
-                    onChange={(e) => setProjectInput(e.target.value)}
+                    onChange={(e) => handleProjectChange(e.target.value)}
                     className="border-b border-dashed border-slate-900 pb-0.5 w-full font-bold bg-transparent text-slate-900 text-xs focus:outline-hidden pl-1 hover:bg-slate-50 print:border-b"
                   />
                 </div>
@@ -2984,8 +3046,8 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
                 });
               } else {
                 const isMulti = dayDrafts.length > 1;
-                dayDrafts.forEach(draft => {
-                  const rowId = draft.id || dStr;
+                dayDrafts.forEach((draft, idx) => {
+                  const rowId = draft.id ? (isMulti ? `${draft.id}_${idx}` : draft.id) : `${dStr}_${idx}`;
                   const suppKey = `${empIdVal}_${dStr}_${rowId}`;
                   list.push({
                     draft,
@@ -3053,9 +3115,19 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
                   </div>
                   <div className="flex items-end gap-1">
                     <span className="font-extrabold text-slate-600 uppercase tracking-wider w-22 shrink-0">Location:</span>
-                    <span className="border-b border-dashed border-slate-900 pb-0.5 w-full font-bold text-slate-900 pl-1">
-                      {locationInput || 'IKM Office'}
-                    </span>
+                    <input
+                      type="text"
+                      value={empLocations[emp.id] ?? 'IKM Office'}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEmpLocations(prev => ({ ...prev, [emp.id]: val }));
+                        localStorage.setItem(`timesheet_loc_${emp.id}`, val);
+                        if (activeEmployee && emp.id === activeEmployee.id) {
+                          setLocationInput(val);
+                        }
+                      }}
+                      className="border-b border-dashed border-slate-900 pb-0.5 w-full font-bold bg-transparent text-slate-900 text-[10px] focus:outline-hidden pl-1 hover:bg-slate-50 text-left print:border-b"
+                    />
                   </div>
                 </div>
 
@@ -3074,9 +3146,19 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
                   </div>
                   <div className="flex items-end gap-1">
                     <span className="font-extrabold text-slate-600 uppercase tracking-wider w-22 shrink-0">Project / Services:</span>
-                    <span className="border-b border-dashed border-slate-900 pb-0.5 w-full font-bold text-slate-900 pl-1">
-                      {projectInput || ''}
-                    </span>
+                    <input
+                      type="text"
+                      value={empProjects[emp.id] ?? ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEmpProjects(prev => ({ ...prev, [emp.id]: val }));
+                        localStorage.setItem(`timesheet_proj_${emp.id}`, val);
+                        if (activeEmployee && emp.id === activeEmployee.id) {
+                          setProjectInput(val);
+                        }
+                      }}
+                      className="border-b border-dashed border-slate-900 pb-0.5 w-full font-bold bg-transparent text-slate-900 text-[10px] focus:outline-hidden pl-1 hover:bg-slate-50 text-left print:border-b"
+                    />
                   </div>
                 </div>
               </div>

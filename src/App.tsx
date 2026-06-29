@@ -3,7 +3,7 @@ import { Employee, Holiday, TimesheetEntry, SystemSettings } from './types';
 import { initialEmployees } from './data/employees';
 import { initialHolidays } from './data/holidays';
 import { initialTimesheetEntries } from './data/initialTimesheets';
-import { calculateEntryOT, rebalanceTimesheetEntries } from './utils/calculator';
+import { calculateEntryOT, rebalanceTimesheetEntries, findEmployeeMatch } from './utils/calculator';
 
 // Component Imports
 import Dashboard from './components/Dashboard';
@@ -344,10 +344,8 @@ export default function App() {
     for (const rawName of incomingEmpNames) {
       if (!rawName) continue;
       
-      const found = updatedEmployees.some(emp => {
-        const normTarget = emp.employeeName.trim().toUpperCase();
-        return normTarget === rawName || normTarget.includes(rawName) || rawName.includes(normTarget);
-      });
+      const match = findEmployeeMatch(rawName, updatedEmployees);
+      const found = !!match;
 
       if (!found) {
         // Auto-create missing employee
@@ -393,11 +391,7 @@ export default function App() {
 
     // 2. Adjust the parsedEntries' names if there were slight matching deviations, using the updated list of employees
     const parsedWithCorrectNames = newParsedList.map(entry => {
-      const match = updatedEmployees.find(emp => {
-        const normTarget = emp.employeeName.trim().toUpperCase();
-        const normInput = entry.employeeName.trim().toUpperCase();
-        return normTarget === normInput || normTarget.includes(normInput) || normInput.includes(normTarget);
-      });
+      const match = findEmployeeMatch(entry.employeeName, updatedEmployees);
       return {
         ...entry,
         employeeName: match ? match.employeeName : entry.employeeName.toUpperCase()
