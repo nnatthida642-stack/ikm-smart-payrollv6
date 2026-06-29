@@ -428,13 +428,51 @@ export default function App() {
       };
     });
 
+    // Deduplicate parsed entries WITHIN themselves to ensure no self-duplicates in the uploaded file
+    const selfDeduplicated: TimesheetEntry[] = [];
+    const selfSeenKeys = new Set<string>();
+    parsedWithCorrectNames.forEach(entry => {
+      const key = `${entry.employeeName.trim().toUpperCase()}_${entry.date}_${entry.timeIn || ''}_${entry.timeOut || ''}_${(entry.project || '').trim().toUpperCase()}_${entry.lunchOT || 0}`;
+      if (!selfSeenKeys.has(key)) {
+        selfSeenKeys.add(key);
+        selfDeduplicated.push(entry);
+      }
+    });
+
+    // Filter out parsed entries that are exact duplicates of already existing entries in the database/system
+    const incomingUnique: TimesheetEntry[] = [];
+    let skippedDbDuplicateCount = 0;
+
+    selfDeduplicated.forEach(newEntry => {
+      const isDuplicateInDb = entries.some(existing => {
+        const nameMatch = existing.employeeName.trim().toUpperCase() === newEntry.employeeName.trim().toUpperCase();
+        const dateMatch = existing.date === newEntry.date;
+        const timeInMatch = (existing.timeIn || '') === (newEntry.timeIn || '');
+        const timeOutMatch = (existing.timeOut || '') === (newEntry.timeOut || '');
+        const projectMatch = (existing.project || '').trim().toUpperCase() === (newEntry.project || '').trim().toUpperCase();
+        const lunchOTMatch = (existing.lunchOT || 0) === (newEntry.lunchOT || 0);
+        return nameMatch && dateMatch && timeInMatch && timeOutMatch && projectMatch && lunchOTMatch;
+      });
+
+      if (isDuplicateInDb) {
+        skippedDbDuplicateCount++;
+      } else {
+        incomingUnique.push(newEntry);
+      }
+    });
+
+    if (incomingUnique.length === 0) {
+      alert(`⚠️ ระบบตรวจพบว่าข้อมูลการทำงานทั้งหมดที่นำเข้ามีอยู่แล้วในระบบเรียบร้อย (ข้ามรายการซ้ำซ้อน ${skippedDbDuplicateCount} รายการ)\nระบบไม่ได้นำเข้าแถวซ้ำใดๆ เพิ่มเติม เพื่อป้องกันค่าการคำนวณซ้ำซ้อน`);
+      return;
+    }
+
     // 3. Save timesheets and sync
-    const list = [...parsedWithCorrectNames, ...entries];
+    const list = [...incomingUnique, ...entries];
     const balanced = updateEntriesAndSync(list);
 
     // Save all entries on the affected dates for the affected employees
     const affectedKeys = new Set<string>();
-    parsedWithCorrectNames.forEach(e => {
+    incomingUnique.forEach(e => {
       affectedKeys.add(`${e.employeeName.trim().toUpperCase()}_${e.date}`);
     });
 
@@ -445,6 +483,10 @@ export default function App() {
 
     if (entriesToSync.length > 0) {
       await dbBulkInsertTimesheets(entriesToSync);
+    }
+
+    if (skippedDbDuplicateCount > 0) {
+      alert(`นำข้อมูลสำเร็จ! บันทึกรายการใหม่สำเร็จ: ${incomingUnique.length} รายการ, ข้ามรายการซ้ำที่มีอยู่แล้วในระบบ: ${skippedDbDuplicateCount} รายการ (ป้องกันข้อมูลซ้ำซ้อนเรียบร้อย)`);
     }
   };
 

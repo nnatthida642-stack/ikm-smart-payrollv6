@@ -245,6 +245,23 @@ export default function TimesheetTable({
       newEntry.customerHolidayFlag
     );
 
+    // Prevent direct duplicate adding of the exact same employee, date, timeIn, timeOut, project, lunchOT
+    const isExactDuplicate = entries.some(existing => {
+      const nameMatch = existing.employeeName.trim().toUpperCase() === newEntry.employeeName.trim().toUpperCase();
+      const dateMatch = existing.date === newEntry.date;
+      const timeInMatch = (existing.timeIn || '') === (newEntry.timeIn || '');
+      const timeOutMatch = (existing.timeOut || '') === (newEntry.timeOut || '');
+      const projectMatch = (existing.project || '').trim().toUpperCase() === (newEntry.project || '').trim().toUpperCase();
+      const lunchOTMatch = (existing.lunchOT || 0) === (newEntry.lunchOT || 0);
+      return nameMatch && dateMatch && timeInMatch && timeOutMatch && projectMatch && lunchOTMatch;
+    });
+
+    if (isExactDuplicate) {
+      if (!window.confirm(`⚠️ ตรวจพบข้อมูลงานซ้ำซ้อนในระบบ!\n\nคุณได้คีย์ข้อมูลเวลาเข้างานเดียวกันของพนักงานคนนี้ วันนี้ โครงการนี้ เรียบร้อยแล้ว\n\nคุณยังยืนยันที่จะบันทึกแถวข้อมูลนี้ซ้ำอีกหรือไม่?`)) {
+        return;
+      }
+    }
+
     const entry: TimesheetEntry = {
       id: generateKeyUUID(),
       employeeName: newEntry.employeeName,
