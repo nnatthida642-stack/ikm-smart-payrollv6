@@ -13,6 +13,7 @@ interface TimesheetTableProps {
   onAddEntry: (entry: TimesheetEntry) => void;
   onUpdateEntry: (id: string, updated: Partial<TimesheetEntry>) => void;
   onDeleteEntry: (id: string) => void;
+  onBulkDeleteEntries?: (ids: string[]) => void;
   onBulkAddEntries: (entries: TimesheetEntry[]) => void;
   onClearAllEntries: () => void;
   onSyncFromDatabase?: () => void;
@@ -41,6 +42,7 @@ export default function TimesheetTable({
   onAddEntry,
   onUpdateEntry,
   onDeleteEntry,
+  onBulkDeleteEntries,
   onBulkAddEntries,
   onClearAllEntries,
   onSyncFromDatabase,
@@ -129,6 +131,59 @@ export default function TimesheetTable({
   // Row currently being edited
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editingEntry, setEditingEntry] = useState<Partial<TimesheetEntry>>({});
+
+  // Detect duplicate entries
+  const duplicateGroups = useMemo(() => {
+    const map = new Map<string, TimesheetEntry[]>();
+    entries.forEach(e => {
+      if (!e || !e.employeeName || !e.date) return;
+      // Key of exact duplicates: same employee, date, timeIn, timeOut, project, lunchOT
+      const key = `${e.employeeName.trim().toUpperCase()}_${e.date}_${e.timeIn || ''}_${e.timeOut || ''}_${(e.project || '').trim().toUpperCase()}_${e.lunchOT || 0}`;
+      const list = map.get(key) || [];
+      list.push(e);
+      map.set(key, list);
+    });
+
+    const dupes: TimesheetEntry[][] = [];
+    map.forEach(list => {
+      if (list.length > 1) {
+        dupes.push(list);
+      }
+    });
+    return dupes;
+  }, [entries]);
+
+  const duplicateEntryIds = useMemo(() => {
+    const ids = new Set<string>();
+    duplicateGroups.forEach(group => {
+      group.forEach(e => ids.add(e.id));
+    });
+    return ids;
+  }, [duplicateGroups]);
+
+  const handleRemoveAllDuplicates = async () => {
+    const idsToDelete: string[] = [];
+    duplicateGroups.forEach(group => {
+      // Keep the first one, delete the rest
+      for (let i = 1; i < group.length; i++) {
+        idsToDelete.push(group[i].id);
+      }
+    });
+
+    if (idsToDelete.length === 0) return;
+
+    if (window.confirm(`คุณต้องการลบรายการที่ซ้ำซ้อนกันทั้งหมดจำนวน ${idsToDelete.length} รายการ หรือไม่?\n(ระบบจะเก็บข้อมูลต้นฉบับไว้ 1 รายการ และลบแถวซ้ำที่เป็นส่วนเกินออกให้ทั้งหมด)`)) {
+      if (onBulkDeleteEntries) {
+        await onBulkDeleteEntries(idsToDelete);
+      } else {
+        // Fallback sequentially
+        for (const id of idsToDelete) {
+          onDeleteEntry(id);
+        }
+      }
+      alert('ลบรายการที่ซ้ำซ้อนเรียบร้อยแล้ว!');
+    }
+  };
 
   // Filter lists
   const filteredEntries = useMemo(() => {
@@ -911,6 +966,30 @@ export default function TimesheetTable({
         </form>
       )}
 
+      {/* Duplicate alert banner */}
+      {duplicateGroups.length > 0 && (
+        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded p-4 text-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-fade-in shadow-xs my-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+            <div>
+              <p className="font-bold text-amber-800 dark:text-amber-300 text-sm">พบรายการซ้ำซ้อนในระบบ ({duplicateGroups.reduce((acc, g) => acc + g.length - 1, 0)} รายการ)</p>
+              <p className="text-slate-600 dark:text-gray-400 mt-1 leading-relaxed">
+                ตรวจพบแถวงานที่ซ้ำกัน (มี พนักงาน, วันที่, เวลาเข้า-ออก และ โครงการ เดียวกัน) ซึ่งทำให้ผลรวมชั่วโมงการทำงานและการคำนวณโอทีคลาดเคลื่อน (เบิ้ลสะสมซ้ำซ้อน) คุณสามารถกดปุ่มลบเพื่อล้างแถวส่วนเกินออกให้เหลือเพียง 1 รายการโดยอัตโนมัติ
+              </p>
+            </div>
+          </div>
+          <button
+            id="remove-all-duplicates-btn"
+            type="button"
+            onClick={handleRemoveAllDuplicates}
+            className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black rounded font-bold transition-all cursor-pointer select-none text-xs shrink-0 shadow-xs flex items-center gap-1.5"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            ล้างรายการซ้ำทั้งหมด (เหลือใบเดียว)
+          </button>
+        </div>
+      )}
+
       {/* Spreadsheet / Timesheet Entries Table */}
       <div className={sheetStyles.gridContainer}>
         <div className="overflow-x-auto">
@@ -958,6 +1037,8 @@ export default function TimesheetTable({
                   let rowBgClass = isEditing ? sheetStyles.trSelected : sheetStyles.trNormal;
                   if (isPH && !isEditing) {
                     rowBgClass = isDark ? 'bg-[#2E1212]/90 border-b border-[#2d2f34]' : 'bg-red-50/60 border-b border-[#e0e0e0]';
+                  } else if (duplicateEntryIds.has(e.id) && !isEditing) {
+                    rowBgClass = isDark ? 'bg-amber-950/10 border-b border-amber-500/20 hover:bg-amber-950/20' : 'bg-amber-50/40 border-b border-amber-200/50 hover:bg-amber-50/70';
                   }
 
                   return (
@@ -984,7 +1065,14 @@ export default function TimesheetTable({
                             ))}
                           </select>
                         ) : (
-                          <span className="font-semibold text-slate-900 dark:text-white whitespace-normal break-words">{e.employeeName}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-slate-900 dark:text-white whitespace-normal break-words">{e.employeeName}</span>
+                            {duplicateEntryIds.has(e.id) && (
+                              <span className="bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-400 border border-amber-200 dark:border-amber-900/30 text-[9px] px-1.5 py-0.5 rounded font-bold shrink-0 animate-pulse" title="รายการนี้มีแถวที่ซ้ำซ้อนกันอยู่ในระบบ">
+                                ซ้ำ (Duplicate)
+                              </span>
+                            )}
+                          </div>
                         )}
                       </td>
 

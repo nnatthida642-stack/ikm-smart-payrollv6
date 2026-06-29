@@ -334,6 +334,36 @@ export default function App() {
     }
   };
 
+  const handleBulkDeleteEntries = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    const list = entries.filter(e => !ids.includes(e.id));
+    const balanced = updateEntriesAndSync(list);
+
+    // Delete in database
+    for (const id of ids) {
+      await dbDeleteTimesheet(id);
+    }
+
+    // Rebalance affected groups
+    const affectedGroups = new Set<string>();
+    ids.forEach(id => {
+      const match = entries.find(e => e.id === id);
+      if (match) {
+        affectedGroups.add(`${match.employeeName.trim().toUpperCase()}_${match.date}`);
+      }
+    });
+
+    for (const groupKey of affectedGroups) {
+      const [empName, date] = groupKey.split('_');
+      const groupEntries = balanced.filter(
+        e => e.employeeName.trim().toUpperCase() === empName && e.date === date
+      );
+      if (groupEntries.length > 0) {
+        await dbBulkInsertTimesheets(groupEntries);
+      }
+    }
+  };
+
   const handleBulkAddEntries = async (newParsedList: TimesheetEntry[]) => {
     // 1. Identify any missing employees from the parsed entries list
     const incomingEmpNames = Array.from(new Set(newParsedList.map(e => e.employeeName.trim().toUpperCase())));
@@ -663,6 +693,7 @@ export default function App() {
               onAddEntry={handleAddEntry}
               onUpdateEntry={handleUpdateEntry}
               onDeleteEntry={handleDeleteEntry}
+              onBulkDeleteEntries={handleBulkDeleteEntries}
               onBulkAddEntries={handleBulkAddEntries}
               onClearAllEntries={handleClearAllEntries}
               onSyncFromDatabase={handleSyncFromDatabase}
