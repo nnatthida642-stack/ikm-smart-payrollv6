@@ -27,6 +27,7 @@ export interface Holiday {
 export interface TimesheetEntry {
   id: string;
   employeeName: string;
+  employeeId?: string;
   date: string; // YYYY-MM-DD
   project: string;
   timeIn: string; // e.g., "08:00" or "8:00"

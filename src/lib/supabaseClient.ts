@@ -340,6 +340,7 @@ export async function dbFetchTimesheets() {
         .from(tableName)
         .select('*')
         .order('Date', { ascending: false })
+        .order('ID', { ascending: false }) // Stable sort tie-breaker to prevent pagination shifting
         .range(from, from + step - 1);
 
       if (error) throw error;
@@ -361,6 +362,7 @@ export async function dbFetchTimesheets() {
       return allData.map((item: any) => ({
         id: item.ID,
         employeeName: item.EmployeeName,
+        employeeId: item.EmployeeID || item.Employee_ID || item.employee_id || item.employeeId,
         date: item.Date,
         project: item.Project || 'workshop',
         timeIn: item.TimeIn || '08:00',
@@ -395,6 +397,7 @@ export async function dbUpsertTimesheet(entry: any) {
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(entry.id || '');
     const dbPayload: any = {
       EmployeeName: entry.employeeName,
+      EmployeeID: entry.employeeId || null,
       Date: entry.date,
       Project: entry.project || 'workshop',
       TimeIn: entry.timeIn,
@@ -420,14 +423,31 @@ export async function dbUpsertTimesheet(entry: any) {
 
     if (error) {
       const errMsg = error.message || '';
-      const isColErr = errMsg.toLowerCase().includes('customer_holiday_flag') || error.code === '42703';
+      const isMissingEmployeeId = errMsg.toLowerCase().includes('employeeid') || errMsg.toLowerCase().includes('employee_id');
+      const isMissingHolidayFlag = errMsg.toLowerCase().includes('customer_holiday_flag');
+      const isColErr = error.code === '42703' || isMissingEmployeeId || isMissingHolidayFlag;
+      
       if (isColErr) {
-        console.warn('⚠️ Omit Customer_Holiday_Flag due to missing column in remote TIMESHEET table');
-        const { Customer_Holiday_Flag, ...stripped } = dbPayload;
+        console.warn('⚠️ Omit missing columns due to missing columns in remote TIMESHEET table');
+        const stripped: any = { ...dbPayload };
+        if (isMissingEmployeeId || error.code === '42703') {
+          delete stripped.EmployeeID;
+        }
+        if (isMissingHolidayFlag || error.code === '42703') {
+          delete stripped.Customer_Holiday_Flag;
+        }
         const { error: retryError } = await supabase
           .from(tableName)
           .upsert(stripped, { onConflict: 'ID' });
-        if (retryError) throw retryError;
+        if (retryError) {
+          const superStripped: any = { ...dbPayload };
+          delete superStripped.EmployeeID;
+          delete superStripped.Customer_Holiday_Flag;
+          const { error: finalError } = await supabase
+            .from(tableName)
+            .upsert(superStripped, { onConflict: 'ID' });
+          if (finalError) throw finalError;
+        }
         return true;
       }
       throw error;
@@ -482,6 +502,7 @@ export async function dbBulkInsertTimesheets(entries: any[]) {
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(entry.id || '');
       const item: any = {
         EmployeeName: entry.employeeName,
+        EmployeeID: entry.employeeId || null,
         Date: entry.date,
         Project: entry.project || 'workshop',
         TimeIn: entry.timeIn,
@@ -508,14 +529,34 @@ export async function dbBulkInsertTimesheets(entries: any[]) {
 
     if (error) {
       const errMsg = error.message || '';
-      const isColErr = errMsg.toLowerCase().includes('customer_holiday_flag') || error.code === '42703';
+      const isMissingEmployeeId = errMsg.toLowerCase().includes('employeeid') || errMsg.toLowerCase().includes('employee_id');
+      const isMissingHolidayFlag = errMsg.toLowerCase().includes('customer_holiday_flag');
+      const isColErr = error.code === '42703' || isMissingEmployeeId || isMissingHolidayFlag;
+      
       if (isColErr) {
-        console.warn('⚠️ Omit Customer_Holiday_Flag in bulk insert due to missing column in remote TIMESHEET table');
-        const strippedPayloads = dbPayloads.map(({ Customer_Holiday_Flag, ...rest }) => rest);
+        console.warn('⚠️ Omit missing columns in bulk insert due to missing columns in remote TIMESHEET table');
+        const strippedPayloads = dbPayloads.map(payload => {
+          const item = { ...payload };
+          if (isMissingEmployeeId || error.code === '42703') {
+            delete item.EmployeeID;
+          }
+          if (isMissingHolidayFlag || error.code === '42703') {
+            delete item.Customer_Holiday_Flag;
+          }
+          return item;
+        });
+        
         const { error: retryError } = await supabase
           .from(tableName)
           .upsert(strippedPayloads, { onConflict: 'ID' });
-        if (retryError) throw retryError;
+          
+        if (retryError) {
+          const superStrippedPayloads = dbPayloads.map(({ EmployeeID, Customer_Holiday_Flag, ...rest }) => rest);
+          const { error: finalError } = await supabase
+            .from(tableName)
+            .upsert(superStrippedPayloads, { onConflict: 'ID' });
+          if (finalError) throw finalError;
+        }
         return true;
       }
       throw error;
@@ -666,6 +707,7 @@ export async function dbFetchSupplements() {
       const { data, error } = await supabase
         .from(tableName)
         .select('*')
+        .order('ID', { ascending: true }) // Deterministic sort to ensure stable pagination
         .range(from, from + step - 1);
 
       if (error) {

@@ -212,10 +212,13 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
   // Compute calculated payroll for every employee
   const payrollDetails = useMemo(() => {
     const calculated = employees.map(emp => {
-      // Find all timesheet records for this employee in the active period
-      const empEntries = periodEntries.filter(
-        entry => entry.employeeName.toLowerCase().trim() === emp.employeeName.toLowerCase().trim()
-      );
+      // Find all timesheet records for this employee in the active period using EmployeeID
+      const empEntries = periodEntries.filter(entry => {
+        if (entry.employeeId) {
+          return entry.employeeId === emp.id;
+        }
+        return entry.employeeName.toLowerCase().trim() === emp.employeeName.toLowerCase().trim();
+      });
 
       const daysWorked = empEntries.length;
       let totalHours = 0;
@@ -502,7 +505,10 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
   const dailyEarningsBreakdown = useMemo(() => {
     const list: any[] = [];
     periodEntries.forEach(ent => {
-      const emp = findEmployeeMatch(ent.employeeName, employees);
+      let emp = ent.employeeId ? employees.find(e => e.id === ent.employeeId) : undefined;
+      if (!emp) {
+        emp = findEmployeeMatch(ent.employeeName, employees);
+      }
       if (!emp) return;
 
       // Base rate determination
@@ -609,6 +615,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
           const hashId = stringToUUID(`${p.id}-${startDate}-${endDate}`);
           return {
             ID: hashId,
+            EmployeeID: p.id,
             EmployeeName: p.name,
             StartDate: startDate,
             EndDate: endDate,
@@ -630,8 +637,11 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
 
       // 2. Prepare detailed daily rates calculations payload for 'RateCalulate'
       const ratePayloads: any[] = [];
-      periodEntries.forEach(ent => {
-        const emp = findEmployeeMatch(ent.employeeName, employees);
+      periodEntries.forEach((ent, index) => {
+        let emp = ent.employeeId ? employees.find(e => e.id === ent.employeeId) : undefined;
+        if (!emp) {
+          emp = findEmployeeMatch(ent.employeeName, employees);
+        }
         if (!emp) return;
 
         // Base rate determination
@@ -649,6 +659,8 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
         const dayTotal = baseRate + otEarnings;
 
         ratePayloads.push({
+          ID: stringToUUID(`${emp.id}-${ent.date}-${ent.id || index}`),
+          EmployeeID: emp.id,
           EmployeeName: ent.employeeName,
           Date: ent.date,
           Project: ent.project || 'workshop',
@@ -675,7 +687,10 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
       // 3. Prepare supplements payload to save
       const supplementsPayloads: any[] = [];
       periodEntries.forEach(ent => {
-        const emp = findEmployeeMatch(ent.employeeName, employees);
+        let emp = ent.employeeId ? employees.find(e => e.id === ent.employeeId) : undefined;
+        if (!emp) {
+          emp = findEmployeeMatch(ent.employeeName, employees);
+        }
         if (!emp) return;
         
         const rowKey = ent.id ? `${emp.id}_${ent.date}_${ent.id}` : `${emp.id}_${ent.date}`;

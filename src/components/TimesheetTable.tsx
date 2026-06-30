@@ -137,8 +137,18 @@ export default function TimesheetTable({
     const map = new Map<string, TimesheetEntry[]>();
     entries.forEach(e => {
       if (!e || !e.employeeName || !e.date) return;
-      // Key of exact duplicates: same employee, date, timeIn, timeOut, project, lunchOT
-      const key = `${e.employeeName.trim().toUpperCase()}_${e.date}_${e.timeIn || ''}_${e.timeOut || ''}_${(e.project || '').trim().toUpperCase()}_${e.lunchOT || 0}`;
+      
+      let empIdRef = e.employeeId;
+      if (!empIdRef) {
+        const emp = findEmployeeMatch(e.employeeName, employees);
+        if (emp) {
+          empIdRef = emp.id;
+        }
+      }
+      const finalEmpKey = empIdRef || e.employeeName.trim().toUpperCase();
+
+      // Key of exact duplicates: same employee ID/ref, date, timeIn, timeOut, project, lunchOT
+      const key = `${finalEmpKey}_${e.date}_${e.timeIn || ''}_${e.timeOut || ''}_${(e.project || '').trim().toUpperCase()}_${e.lunchOT || 0}`;
       const list = map.get(key) || [];
       list.push(e);
       map.set(key, list);
@@ -151,7 +161,7 @@ export default function TimesheetTable({
       }
     });
     return dupes;
-  }, [entries]);
+  }, [entries, employees]);
 
   const duplicateEntryIds = useMemo(() => {
     const ids = new Set<string>();
@@ -243,13 +253,20 @@ export default function TimesheetTable({
 
     // Prevent direct duplicate adding of the exact same employee, date, timeIn, timeOut, project, lunchOT
     const isExactDuplicate = entries.some(existing => {
-      const nameMatch = existing.employeeName.trim().toUpperCase() === newEntry.employeeName.trim().toUpperCase();
+      const targetEmpId = matchedEmp?.id;
+      const existingEmp = findEmployeeMatch(existing.employeeName, employees);
+      const existingEmpId = existing.employeeId || existingEmp?.id;
+
+      const employeeMatch = (targetEmpId && existingEmpId)
+        ? targetEmpId === existingEmpId
+        : existing.employeeName.trim().toUpperCase() === newEntry.employeeName!.trim().toUpperCase();
+
       const dateMatch = existing.date === newEntry.date;
       const timeInMatch = (existing.timeIn || '') === (newEntry.timeIn || '');
       const timeOutMatch = (existing.timeOut || '') === (newEntry.timeOut || '');
       const projectMatch = (existing.project || '').trim().toUpperCase() === (newEntry.project || '').trim().toUpperCase();
       const lunchOTMatch = (existing.lunchOT || 0) === (newEntry.lunchOT || 0);
-      return nameMatch && dateMatch && timeInMatch && timeOutMatch && projectMatch && lunchOTMatch;
+      return employeeMatch && dateMatch && timeInMatch && timeOutMatch && projectMatch && lunchOTMatch;
     });
 
     if (isExactDuplicate) {
@@ -261,6 +278,7 @@ export default function TimesheetTable({
     const entry: TimesheetEntry = {
       id: generateKeyUUID(),
       employeeName: newEntry.employeeName,
+      employeeId: matchedEmp ? matchedEmp.id : undefined,
       date: newEntry.date,
       project: newEntry.project || '',
       timeIn: newEntry.timeIn,
@@ -319,6 +337,7 @@ export default function TimesheetTable({
 
     const finalUpdate: Partial<TimesheetEntry> = {
       ...editingEntry,
+      employeeId: matchedEmp ? matchedEmp.id : undefined,
       normalHours: calc.normalHours,
       ot15Hours: calc.ot15Hours,
       ot20Hours: calc.ot20Hours,
@@ -526,6 +545,7 @@ export default function TimesheetTable({
         parsedEntries.push({
           id: generateKeyUUID(),
           employeeName: matchedEmp ? matchedEmp.employeeName : empName.toUpperCase(),
+          employeeId: matchedEmp ? matchedEmp.id : undefined,
           date: dateStr,
           project: project || '',
           timeIn: standardTimeIn,

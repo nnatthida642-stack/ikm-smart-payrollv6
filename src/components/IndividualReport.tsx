@@ -377,12 +377,14 @@ export default function IndividualReport({
     if (!selectedEmpName) return [];
     return entries
       .filter(entry => {
-        const matchEmpName = entry.employeeName.toLowerCase().trim() === selectedEmpName.toLowerCase().trim();
+        const matchEmp = (entry.employeeId && activeEmployee)
+          ? entry.employeeId === activeEmployee.id
+          : entry.employeeName.toLowerCase().trim() === selectedEmpName.toLowerCase().trim();
         const inDateRange = entry.date >= startDate && entry.date <= endDate;
-        return matchEmpName && inDateRange;
+        return matchEmp && inDateRange;
       })
       .sort((a, b) => a.date.localeCompare(b.date));
-  }, [entries, selectedEmpName, startDate, endDate]);
+  }, [entries, selectedEmpName, activeEmployee, startDate, endDate]);
 
   // Generate complete physical dates day-by-day in range
   const renderedDates = useMemo(() => {
@@ -457,7 +459,9 @@ export default function IndividualReport({
   const masterAggregate = useMemo(() => {
     return employees.map(emp => {
       const matchEntries = entries.filter(ent => {
-        const matchName = ent.employeeName.toLowerCase().trim() === emp.employeeName.toLowerCase().trim();
+        const matchName = ent.employeeId 
+          ? ent.employeeId === emp.id 
+          : ent.employeeName.toLowerCase().trim() === emp.employeeName.toLowerCase().trim();
         const inRange = ent.date >= startDate && ent.date <= endDate;
         return matchName && inRange;
       });
@@ -1110,7 +1114,11 @@ export default function IndividualReport({
       const dayDrafts = ((emp.employeeName.toLowerCase().trim() === selectedEmpName.toLowerCase().trim()
         ? Object.values(draftEntries)
         : entries
-      ) as Partial<TimesheetEntry>[]).filter(e => e && e.employeeName && e.employeeName.toLowerCase().trim() === emp.employeeName.toLowerCase().trim() && e.date === dStr);
+      ) as Partial<TimesheetEntry>[]).filter(e => {
+        if (!e) return false;
+        const matchEmp = e.employeeId ? e.employeeId === emp.id : (e.employeeName && e.employeeName.toLowerCase().trim() === emp.employeeName.toLowerCase().trim());
+        return matchEmp && e.date === dStr;
+      });
 
       const hasWork = dayDrafts.some(draft => draft.timeIn && draft.timeOut);
       const isSatOrSun = new Date(dStr).getDay() === 0 || new Date(dStr).getDay() === 6;
@@ -3017,7 +3025,11 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
                 ? Object.values(draftEntries)
                 : entries
               ) as Partial<TimesheetEntry>[])
-                .filter(e => e && e.employeeName && e.employeeName.toLowerCase().trim() === empName.toLowerCase().trim() && e.date === dStr)
+                .filter(e => {
+                  if (!e) return false;
+                  const matchEmp = e.employeeId ? e.employeeId === empIdVal : (e.employeeName && e.employeeName.toLowerCase().trim() === empName.toLowerCase().trim());
+                  return matchEmp && e.date === dStr;
+                })
                 .sort((a, b) => (a.timeIn || '08:00').localeCompare(b.timeIn || '08:00'));
 
               if (dayDrafts.length === 0) {
