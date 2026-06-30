@@ -224,11 +224,7 @@ export default function TimesheetTable({
     }
 
     const isFlat = newEntry.flatRate || false;
-    const matchedEmp = employees.find(emp => {
-      const normTarget = emp.employeeName.trim().toUpperCase();
-      const normInput = (newEntry.employeeName || '').trim().toUpperCase();
-      return normTarget === normInput || normTarget.includes(normInput) || normInput.includes(normTarget);
-    });
+    const matchedEmp = findEmployeeMatch(newEntry.employeeName || '', employees);
 
     // Perform dynamic OT calculation
     const calc = calculateEntryOT(
@@ -305,11 +301,7 @@ export default function TimesheetTable({
     }
 
     const isFlat = editingEntry.flatRate || false;
-    const matchedEmp = employees.find(emp => {
-      const normTarget = emp.employeeName.trim().toUpperCase();
-      const normInput = (editingEntry.employeeName || '').trim().toUpperCase();
-      return normTarget === normInput || normTarget.includes(normInput) || normInput.includes(normTarget);
-    });
+    const matchedEmp = findEmployeeMatch(editingEntry.employeeName || '', employees);
 
     const calc = calculateEntryOT(
       editingEntry.date,

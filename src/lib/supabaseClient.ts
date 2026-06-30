@@ -101,7 +101,13 @@ function isTableOrSchemaMissing(msg: string): boolean {
     lowercaseMsg.includes('schema cache') ||
     lowercaseMsg.includes('42p01') ||
     lowercaseMsg.includes('pgrst116') ||
-    lowercaseMsg.includes('pgrst205')
+    lowercaseMsg.includes('pgrst205') ||
+    lowercaseMsg.includes('failed to fetch') ||
+    lowercaseMsg.includes('network error') ||
+    lowercaseMsg.includes('load failed') ||
+    lowercaseMsg.includes('unreachable') ||
+    lowercaseMsg.includes('cors') ||
+    lowercaseMsg.includes('timeout')
   );
 }
 
@@ -664,10 +670,7 @@ export async function dbFetchSupplements() {
 
       if (error) {
         const errMsg = error.message || '';
-        const isTableErr = errMsg.includes('Invalid path') || 
-                           errMsg.toLowerCase().includes('not found') || 
-                           errMsg.toLowerCase().includes('does not exist');
-        if (isTableErr) {
+        if (isTableOrSchemaMissing(errMsg)) {
           console.warn('⚠️ Supabase IndividualSupplements warning (schema not loaded or table not created yet):', errMsg);
         } else {
           console.error('❌ Supabase IndividualSupplements fetch error:', errMsg);
@@ -691,7 +694,7 @@ export async function dbFetchSupplements() {
     return allData;
   } catch (err: any) {
     const errMsg = err?.message || '';
-    if (errMsg.includes('Invalid path') || errMsg.toLowerCase().includes('not found') || errMsg.toLowerCase().includes('does not exist')) {
+    if (isTableOrSchemaMissing(errMsg)) {
       console.warn('⚠️ Supabase IndividualSupplements warning (schema not loaded or table not created yet):', errMsg);
     } else {
       console.error('❌ Supabase IndividualSupplements fetch error:', errMsg);
@@ -751,10 +754,7 @@ export async function dbSaveSupplements(supplementsList: any[]) {
       }
     }
 
-    const isTableErr = errMsg.includes('Invalid path') || 
-                       lowercaseMsg.includes('not found') || 
-                       lowercaseMsg.includes('does not exist');
-    if (isTableErr) {
+    if (isTableOrSchemaMissing(errMsg)) {
       console.warn('⚠️ Supabase IndividualSupplements warning (schema not loaded or table not created yet):', errMsg);
     } else {
       console.error('❌ Supabase IndividualSupplements upsert error:', errMsg);

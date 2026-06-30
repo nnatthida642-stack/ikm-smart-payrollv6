@@ -7,7 +7,7 @@ import {
   Printer, ArrowRight, Save, Coins, ShieldCheck, Banknote
 } from 'lucide-react';
 import { supabase, dbSaveMonthlySummary, dbSaveRateCalculation, dbFetchSupplements, dbSaveSupplements, dbFetchMonthlySummaries, stringToUUID } from '../lib/supabaseClient';
-import { formatThaiDate } from '../utils/calculator';
+import { formatThaiDate, findEmployeeMatch } from '../utils/calculator';
 
 interface PayrollSectionProps {
   employees: Employee[];
@@ -138,7 +138,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
           const loadedCustomStudentLoans: Record<string, number> = {};
 
           data.forEach((row: any) => {
-            const emp = employees.find(e => e.employeeName.toLowerCase().trim() === row.EmployeeName.toLowerCase().trim());
+            const emp = findEmployeeMatch(row.EmployeeName, employees);
             if (emp) {
               if (row.OtherIncome !== undefined && row.OtherIncome !== null) {
                 loadedAllowances[emp.id] = Number(row.OtherIncome);
@@ -502,7 +502,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
   const dailyEarningsBreakdown = useMemo(() => {
     const list: any[] = [];
     periodEntries.forEach(ent => {
-      const emp = employees.find(e => e.employeeName.toLowerCase().trim() === ent.employeeName.toLowerCase().trim());
+      const emp = findEmployeeMatch(ent.employeeName, employees);
       if (!emp) return;
 
       // Base rate determination
@@ -631,7 +631,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
       // 2. Prepare detailed daily rates calculations payload for 'RateCalulate'
       const ratePayloads: any[] = [];
       periodEntries.forEach(ent => {
-        const emp = employees.find(e => e.employeeName.toLowerCase().trim() === ent.employeeName.toLowerCase().trim());
+        const emp = findEmployeeMatch(ent.employeeName, employees);
         if (!emp) return;
 
         // Base rate determination
@@ -675,7 +675,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
       // 3. Prepare supplements payload to save
       const supplementsPayloads: any[] = [];
       periodEntries.forEach(ent => {
-        const emp = employees.find(e => e.employeeName.toLowerCase().trim() === ent.employeeName.toLowerCase().trim());
+        const emp = findEmployeeMatch(ent.employeeName, employees);
         if (!emp) return;
         
         const rowKey = ent.id ? `${emp.id}_${ent.date}_${ent.id}` : `${emp.id}_${ent.date}`;

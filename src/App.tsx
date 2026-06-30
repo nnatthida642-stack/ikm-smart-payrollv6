@@ -370,6 +370,7 @@ export default function App() {
     
     let updatedEmployees = [...employees];
     const createdEmployees: Employee[] = [];
+    const employeesToUpdateName: Employee[] = [];
 
     for (const rawName of incomingEmpNames) {
       if (!rawName) continue;
@@ -408,14 +409,27 @@ export default function App() {
 
         createdEmployees.push(newEmp);
         updatedEmployees.push(newEmp);
+      } else {
+        // If employee is matched, but the input name is more complete (e.g. contains last name while DB name only has first name),
+        // we automatically update the employee's name in the system to the full name!
+        const cleanRawName = rawName.trim().toUpperCase().replace(/\s+/g, ' ');
+        const cleanEmpName = match.employeeName.trim().toUpperCase().replace(/\s+/g, ' ');
+        
+        if (cleanRawName !== cleanEmpName && cleanRawName.startsWith(cleanEmpName)) {
+          match.employeeName = rawName.trim(); // Update to full name with last name
+          employeesToUpdateName.push(match);
+        }
       }
     }
 
-    // If new employees were created, save and sync them first
-    if (createdEmployees.length > 0) {
+    // If new employees were created or existing employee names were updated to be complete, save and sync them
+    if (createdEmployees.length > 0 || employeesToUpdateName.length > 0) {
       updateEmployeesAndSync(updatedEmployees);
       for (const newEmp of createdEmployees) {
         await dbUpsertEmployee(newEmp);
+      }
+      for (const updatedEmp of employeesToUpdateName) {
+        await dbUpsertEmployee(updatedEmp);
       }
     }
 

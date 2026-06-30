@@ -6,7 +6,7 @@ import {
   Search, FileSpreadsheet, ChevronRight, CheckCircle, Info, ArrowRight, UserCheck, RefreshCw, Plus, Check, Database, Trash2,
   Lock
 } from 'lucide-react';
-import { calculateEntryOT, formatThaiDate } from '../utils/calculator';
+import { calculateEntryOT, formatThaiDate, findEmployeeMatch } from '../utils/calculator';
 import { dbFetchSupplements, dbSaveSupplements } from '../lib/supabaseClient';
 
 interface IndividualReportProps {
@@ -232,7 +232,7 @@ export default function IndividualReport({
   }, [employees, selectedEmpName]);
 
   const activeEmployee = useMemo(() => {
-    return employees.find(e => e.employeeName.toLowerCase().trim() === selectedEmpName.toLowerCase().trim()) || null;
+    return findEmployeeMatch(selectedEmpName, employees) || null;
   }, [employees, selectedEmpName]);
 
   const [empSearch, setEmpSearch] = useState<string>('');

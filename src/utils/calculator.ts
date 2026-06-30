@@ -13,97 +13,58 @@ export function findEmployeeMatch(inputName: string, employees: Employee[]): Emp
   });
   if (idMatch) return idMatch;
 
-  // 2. Try exact name match (normalized spaces)
-  const exactNameMatch = employees.find(emp => {
-    const cleanTarget = emp.employeeName.trim().toUpperCase().replace(/\s+/g, ' ');
-    return cleanTarget === cleanInput;
-  });
-  if (exactNameMatch) return exactNameMatch;
-
-  // 3. Try checking if ID is embedded in the input (e.g., "EMP032 ANAN KHOTSOMBAT" or "EMP032 - ANAN")
+  // 2. Try checking if ID is embedded in the input (e.g., "EMP032 ANAN KHOTSOMBAT" or "EMP032 - ANAN")
   const idEmbeddedMatch = employees.find(emp => {
     const cleanId = emp.id.trim().toUpperCase();
     return cleanInput.includes(cleanId);
   });
   if (idEmbeddedMatch) return idEmbeddedMatch;
 
-  // 4. Strict Word-by-Word Matching (Character-exact & Last Name Aware)
+  // 3. Exact Name Match (Normalized spaces and case)
+  const exactNameMatch = employees.find(emp => {
+    const cleanTarget = emp.employeeName.trim().toUpperCase().replace(/\s+/g, ' ');
+    return cleanTarget === cleanInput;
+  });
+  if (exactNameMatch) return exactNameMatch;
+
+  // 4. Strict Alphanumeric Exact Match (checking every letter of first & last name)
+  // This matches "THAWATCHAI KHAN-KEAW" with "THAWATCHAI KHAN KEAW" or "Thawatchai Khan-keaw" perfectly
+  const normInput = cleanInput.replace(/[^A-Z0-9ก-๙]/g, '');
+  const exactAlphanumericMatch = employees.find(emp => {
+    const normTarget = emp.employeeName.trim().toUpperCase().replace(/[^A-Z0-9ก-๙]/g, '');
+    return normTarget === normInput;
+  });
+  if (exactAlphanumericMatch) return exactAlphanumericMatch;
+
+  // 5. Strict First & Last name matching (referencing last name and every letter)
   const inputWords = cleanInput.split(' ').filter(w => w.length > 0);
-  if (inputWords.length > 0) {
+  if (inputWords.length >= 2) {
     const inputFirstName = inputWords[0];
     const inputLastName = inputWords.slice(1).join(' ');
 
-    const candidates = employees.map(emp => {
-      const cleanTarget = emp.employeeName.trim().toUpperCase().replace(/\s+/g, ' ');
-      const targetWords = cleanTarget.split(' ').filter(w => w.length > 0);
-      const targetFirstName = targetWords[0] || '';
+    const normInputFN = inputFirstName.replace(/[^A-Z0-9ก-๙]/g, '');
+    const normInputLN = inputLastName.replace(/[^A-Z0-9ก-๙]/g, '');
+
+    // Search for candidates where first name and last name match strictly
+    const match = employees.find(emp => {
+      const targetClean = emp.employeeName.trim().toUpperCase().replace(/\s+/g, ' ');
+      const targetWords = targetClean.split(' ').filter(w => w.length > 0);
+      if (targetWords.length < 2) return false;
+
+      const targetFirstName = targetWords[0];
       const targetLastName = targetWords.slice(1).join(' ');
 
-      return {
-        employee: emp,
-        cleanTarget,
-        targetWords,
-        targetFirstName,
-        targetLastName
-      };
+      const normTargetFN = targetFirstName.replace(/[^A-Z0-9ก-๙]/g, '');
+      const normTargetLN = targetLastName.replace(/[^A-Z0-9ก-๙]/g, '');
+
+      // Check first name exact match and last name exact match
+      return normInputFN === normTargetFN && normInputLN === normTargetLN;
     });
 
-    // Filter candidates where the first name matches exactly or is a very close prefix (length >= 4)
-    const firstNameMatches = candidates.filter(c => {
-      return c.targetFirstName === inputFirstName || 
-             (c.targetFirstName.length >= 4 && inputFirstName.length >= 4 && 
-              (c.targetFirstName.startsWith(inputFirstName) || inputFirstName.startsWith(c.targetFirstName)));
-    });
-
-    if (firstNameMatches.length > 0) {
-      if (inputLastName) {
-        // Find if there is a candidate with a matching last name
-        const lastNameMatches = firstNameMatches.filter(c => {
-          if (!c.targetLastName) return false;
-          const normInputLN = inputLastName.replace(/[^A-Z0-9]/g, '');
-          const normTargetLN = c.targetLastName.replace(/[^A-Z0-9]/g, '');
-          
-          // Must match exactly, or one is a significant prefix of another (min 3 characters) to avoid minor typos
-          return normInputLN === normTargetLN || 
-                 (normInputLN.length >= 3 && normTargetLN.length >= 3 && 
-                  (normInputLN.startsWith(normTargetLN) || normTargetLN.startsWith(normInputLN)));
-        });
-
-        if (lastNameMatches.length > 0) {
-          // Favor exact last name match if available
-          const exactLN = lastNameMatches.find(c => {
-            const normInputLN = inputLastName.replace(/[^A-Z0-9]/g, '');
-            const normTargetLN = c.targetLastName.replace(/[^A-Z0-9]/g, '');
-            return normInputLN === normTargetLN;
-          });
-          if (exactLN) return exactLN.employee;
-          return lastNameMatches[0].employee;
-        }
-
-        // If input has a last name, but the database employee has NO last name listed,
-        // we can match ONLY IF there are no other employees with that same first name in the system
-        const firstNameOnlyCandidates = firstNameMatches.filter(c => !c.targetLastName);
-        if (firstNameOnlyCandidates.length === 1 && firstNameMatches.length === 1) {
-          return firstNameOnlyCandidates[0].employee;
-        }
-      } else {
-        // If input has no last name, match only if there is exactly 1 candidate with this first name in the system
-        // (to avoid matching the wrong person if multiple employees share the same first name)
-        if (firstNameMatches.length === 1) {
-          return firstNameMatches[0].employee;
-        }
-      }
-    }
+    if (match) return match;
   }
 
-  // 5. Safe alphanumeric matching (e.g. ignoring special characters/spaces completely for full name)
-  const normInput = cleanInput.replace(/[^A-Z0-9]/g, '');
-  const alphanumericMatch = employees.find(emp => {
-    const normTarget = emp.employeeName.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-    return normTarget === normInput;
-  });
-  if (alphanumericMatch) return alphanumericMatch;
-
+  // If no safe strict match is found, DO NOT loosely guess to prevent duplicate/incorrect assignments.
   return undefined;
 }
 
