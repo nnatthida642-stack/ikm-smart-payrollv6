@@ -27,74 +27,84 @@ export function findEmployeeMatch(inputName: string, employees: Employee[]): Emp
   });
   if (idEmbeddedMatch) return idEmbeddedMatch;
 
-  // 4. Try matching first name AND last name parts with word boundaries
+  // 4. Strict Word-by-Word Matching (Character-exact & Last Name Aware)
   const inputWords = cleanInput.split(' ').filter(w => w.length > 0);
   if (inputWords.length > 0) {
-    // Score each employee based on how well their name matches the input words
-    let bestMatch: Employee | undefined = undefined;
-    let highestScore = 0;
+    const inputFirstName = inputWords[0];
+    const inputLastName = inputWords.slice(1).join(' ');
 
-    for (const emp of employees) {
-      const targetWords = emp.employeeName.trim().toUpperCase().replace(/\s+/g, ' ').split(' ');
-      
-      // Calculate how many input words match target words exactly or as prefixes
-      let score = 0;
-      let matchedAll = true;
+    const candidates = employees.map(emp => {
+      const cleanTarget = emp.employeeName.trim().toUpperCase().replace(/\s+/g, ' ');
+      const targetWords = cleanTarget.split(' ').filter(w => w.length > 0);
+      const targetFirstName = targetWords[0] || '';
+      const targetLastName = targetWords.slice(1).join(' ');
 
-      for (const inWord of inputWords) {
-        let wordMatched = false;
-        for (const tWord of targetWords) {
-          if (tWord === inWord) {
-            score += 10; // Exact word match
-            wordMatched = true;
-          } else if (tWord.startsWith(inWord) || inWord.startsWith(tWord)) {
-            score += 5; // Prefix or partial word match
-            wordMatched = true;
-          }
+      return {
+        employee: emp,
+        cleanTarget,
+        targetWords,
+        targetFirstName,
+        targetLastName
+      };
+    });
+
+    // Filter candidates where the first name matches exactly or is a very close prefix (length >= 4)
+    const firstNameMatches = candidates.filter(c => {
+      return c.targetFirstName === inputFirstName || 
+             (c.targetFirstName.length >= 4 && inputFirstName.length >= 4 && 
+              (c.targetFirstName.startsWith(inputFirstName) || inputFirstName.startsWith(c.targetFirstName)));
+    });
+
+    if (firstNameMatches.length > 0) {
+      if (inputLastName) {
+        // Find if there is a candidate with a matching last name
+        const lastNameMatches = firstNameMatches.filter(c => {
+          if (!c.targetLastName) return false;
+          const normInputLN = inputLastName.replace(/[^A-Z0-9]/g, '');
+          const normTargetLN = c.targetLastName.replace(/[^A-Z0-9]/g, '');
+          
+          // Must match exactly, or one is a significant prefix of another (min 3 characters) to avoid minor typos
+          return normInputLN === normTargetLN || 
+                 (normInputLN.length >= 3 && normTargetLN.length >= 3 && 
+                  (normInputLN.startsWith(normTargetLN) || normTargetLN.startsWith(normInputLN)));
+        });
+
+        if (lastNameMatches.length > 0) {
+          // Favor exact last name match if available
+          const exactLN = lastNameMatches.find(c => {
+            const normInputLN = inputLastName.replace(/[^A-Z0-9]/g, '');
+            const normTargetLN = c.targetLastName.replace(/[^A-Z0-9]/g, '');
+            return normInputLN === normTargetLN;
+          });
+          if (exactLN) return exactLN.employee;
+          return lastNameMatches[0].employee;
         }
-        if (!wordMatched) {
-          matchedAll = false;
+
+        // If input has a last name, but the database employee has NO last name listed,
+        // we can match ONLY IF there are no other employees with that same first name in the system
+        const firstNameOnlyCandidates = firstNameMatches.filter(c => !c.targetLastName);
+        if (firstNameOnlyCandidates.length === 1 && firstNameMatches.length === 1) {
+          return firstNameOnlyCandidates[0].employee;
+        }
+      } else {
+        // If input has no last name, match only if there is exactly 1 candidate with this first name in the system
+        // (to avoid matching the wrong person if multiple employees share the same first name)
+        if (firstNameMatches.length === 1) {
+          return firstNameMatches[0].employee;
         }
       }
-
-      // Bonus if first word (first name) matches exactly
-      if (targetWords[0] === inputWords[0]) {
-        score += 8;
-      } else if (targetWords[0] && inputWords[0] && (targetWords[0].startsWith(inputWords[0]) || inputWords[0].startsWith(targetWords[0]))) {
-        score += 3;
-      }
-
-      // Bonus for name length similarity or exact matching count
-      if (matchedAll) {
-        score += 4;
-      }
-
-      if (score > highestScore) {
-        highestScore = score;
-        bestMatch = emp;
-      } else if (score === highestScore && score > 0) {
-        // Tie-breaker: favor exact first-word match
-        if (bestMatch) {
-          const prevFirstWord = bestMatch.employeeName.trim().toUpperCase().split(' ')[0];
-          const currFirstWord = emp.employeeName.trim().toUpperCase().split(' ')[0];
-          if (currFirstWord === inputWords[0] && prevFirstWord !== inputWords[0]) {
-            bestMatch = emp;
-          }
-        }
-      }
-    }
-
-    // Only return if we have a reasonably strong match (e.g., score >= 5)
-    if (highestScore >= 5) {
-      return bestMatch;
     }
   }
 
-  // 5. Ultimate fallback - loose substring match
-  return employees.find(emp => {
-    const normTarget = emp.employeeName.trim().toUpperCase();
-    return normTarget.includes(cleanInput) || cleanInput.includes(normTarget);
+  // 5. Safe alphanumeric matching (e.g. ignoring special characters/spaces completely for full name)
+  const normInput = cleanInput.replace(/[^A-Z0-9]/g, '');
+  const alphanumericMatch = employees.find(emp => {
+    const normTarget = emp.employeeName.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    return normTarget === normInput;
   });
+  if (alphanumericMatch) return alphanumericMatch;
+
+  return undefined;
 }
 
 export function parseTimeToDecimal(timeStr: string): number {
