@@ -4,10 +4,14 @@ import { Employee, TimesheetEntry, SystemSettings, Holiday } from '../types';
 import { 
   Users, Calendar, Clock, Filter, Printer, Download, Save,
   Search, FileSpreadsheet, ChevronRight, CheckCircle, Info, ArrowRight, UserCheck, RefreshCw, Plus, Check, Database, Trash2,
-  Lock
+  Lock, Briefcase, Coins
 } from 'lucide-react';
 import { calculateEntryOT, formatThaiDate, findEmployeeMatch } from '../utils/calculator';
 import { dbFetchSupplements, dbSaveSupplements } from '../lib/supabaseClient';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  PieChart, Pie, Cell
+} from 'recharts';
 
 interface IndividualReportProps {
   employees: Employee[];
@@ -128,8 +132,14 @@ export default function IndividualReport({
   onDeleteEntry
 }: IndividualReportProps) {
   // Navigation tabs: "master" (aggregate overview) or "drilldown" (IKM styled monthly timesheet)
-  const [activeSubTab, setActiveSubTab] = useState<'master' | 'drilldown' | 'daily-breakdown'>('drilldown');
+  const [activeSubTab, setActiveSubTab] = useState<'master' | 'drilldown' | 'daily-breakdown' | 'project-summary'>('drilldown');
   const [isSubTabsUnlocked, setIsSubTabsUnlocked] = useState<boolean>(false);
+
+  // Project Summary Report States
+  const [selectedProjectEmployees, setSelectedProjectEmployees] = useState<string[]>([]);
+  const [selectedProjectList, setSelectedProjectList] = useState<string[]>([]);
+  const [isProjEmpDropdownOpen, setIsProjEmpDropdownOpen] = useState<boolean>(false);
+  const [isProjDropdownOpen, setIsProjDropdownOpen] = useState<boolean>(false);
 
   // Configured selected employee for drill-down
   const [selectedEmpName, setSelectedEmpName] = useState<string>('');
@@ -506,6 +516,236 @@ export default function IndividualReport({
              m.position.toLowerCase().includes(masterSearch.toLowerCase());
     });
   }, [masterAggregate, masterSearch]);
+
+  const uniqueProjects = useMemo(() => {
+    const projs = new Set<string>();
+    entries.forEach(e => {
+      if (e.project) projs.add(e.project.trim());
+    });
+    return Array.from(projs).filter(Boolean).sort();
+  }, [entries]);
+
+  const projectSummaryData = useMemo(() => {
+    const summary: Record<string, {
+      project: string;
+      normalWage: number;
+      otWage: number;
+      combinedWageOt: number;
+      perdiem: number;
+      grandTotal: number;
+    }> = {};
+
+    // Get all unique matches
+    entries.forEach(entry => {
+      // Date range filter
+      if (entry.date < startDate || entry.date > endDate) return;
+
+      // Employee match
+      const emp = employees.find(e => {
+        if (entry.employeeId) return e.id === entry.employeeId;
+        return e.employeeName.toLowerCase().trim() === entry.employeeName.toLowerCase().trim();
+      });
+      if (!emp) return;
+
+      // Employee multi-select filter
+      if (selectedProjectEmployees.length > 0 && !selectedProjectEmployees.includes(emp.id)) return;
+
+      // Project filter
+      const projectKey = (entry.project || 'Unspecified').trim();
+      if (selectedProjectList.length > 0 && !selectedProjectList.includes(projectKey)) return;
+
+      // Initialize group if not exists
+      if (!summary[projectKey]) {
+        summary[projectKey] = {
+          project: projectKey,
+          normalWage: 0,
+          otWage: 0,
+          combinedWageOt: 0,
+          perdiem: 0,
+          grandTotal: 0
+        };
+      }
+
+      // Calculations
+      const normHrs = entry.normalHours || 0;
+      const itemOt15 = entry.ot15Hours || 0;
+      const itemOt20 = entry.ot20Hours || 0;
+      const itemOt30 = entry.ot30Hours || 0;
+
+      let localDayRate = emp.workshopRate || 0;
+      const projLower = projectKey.toLowerCase();
+      const isOffshore = projLower.includes('offshore');
+      const isWfh = projLower.includes('wfh') || projLower.includes('home');
+      const isWorkshop = projLower.includes('workshop');
+      const isOnsite = projLower.includes('onsite') || (projLower !== '' && !isWorkshop && !isOffshore && !isWfh);
+
+      if (isOnsite) {
+        localDayRate = emp.onsiteRate || 0;
+      } else if (isOffshore) {
+        localDayRate = emp.offshoreRate || 0;
+      } else if (isWfh) {
+        localDayRate = emp.wfhRate || 0;
+      }
+
+      const isStaff = emp.workScheduleType === 'staff' || emp.workScheduleType === 'monthly_worker';
+      
+      let empHourlyRate = 0;
+      const workHours = settings.defaultWorkHours || 8;
+      if (isStaff) {
+        const salary = emp.officeSalary || emp.staffSalary || 0;
+        empHourlyRate = Number((salary / 30 / workHours).toFixed(2));
+      } else {
+        empHourlyRate = Number((localDayRate / workHours).toFixed(2));
+      }
+
+      const ot20RateActual = isStaff ? 1.0 : (settings?.ot20Rate || 2.0);
+      const normalPay = normHrs * empHourlyRate;
+      const otPay = isOffshore ? 0 : (itemOt15 * 1.5 + itemOt20 * ot20RateActual + itemOt30 * 3.0) * empHourlyRate;
+
+      summary[projectKey].normalWage += normalPay;
+      summary[projectKey].otWage += otPay;
+      summary[projectKey].combinedWageOt += (normalPay + otPay);
+    });
+
+    // Now, add Perdiem from supplements.
+    Object.keys(supplements).forEach(key => {
+      const parts = key.split('_');
+      if (parts.length < 2) return;
+      const empId = parts[0];
+      const dateStr = parts[1];
+
+      // Date filter
+      if (dateStr < startDate || dateStr > endDate) return;
+
+      // Employee match
+      const emp = employees.find(e => e.id === empId);
+      if (!emp) return;
+
+      // Filter by selected employees
+      if (selectedProjectEmployees.length > 0 && !selectedProjectEmployees.includes(emp.id)) return;
+
+      // Find project from entries on that date
+      const dayEntries = entries.filter(ent => {
+        const matchEmp = ent.employeeId ? ent.employeeId === empId : ent.employeeName.toLowerCase().trim() === emp.employeeName.toLowerCase().trim();
+        return matchEmp && ent.date === dateStr;
+      });
+
+      const matchedProject = dayEntries.length > 0 ? (dayEntries[0].project || 'Unspecified').trim() : 'Unspecified';
+
+      // Project filter
+      if (selectedProjectList.length > 0 && !selectedProjectList.includes(matchedProject)) return;
+
+      const supp = supplements[key];
+      const perdiemVal = Number(supp.perdiem || 0);
+      if (perdiemVal > 0) {
+        if (!summary[matchedProject]) {
+          summary[matchedProject] = {
+            project: matchedProject,
+            normalWage: 0,
+            otWage: 0,
+            combinedWageOt: 0,
+            perdiem: 0,
+            grandTotal: 0
+          };
+        }
+        summary[matchedProject].perdiem += perdiemVal;
+      }
+    });
+
+    // Compute grand totals
+    return Object.values(summary).map(item => {
+      return {
+        ...item,
+        grandTotal: item.combinedWageOt + item.perdiem
+      };
+    });
+  }, [entries, employees, startDate, endDate, selectedProjectEmployees, selectedProjectList, supplements, settings]);
+
+  const projectTotals = useMemo(() => {
+    const totalNormal = projectSummaryData.reduce((sum, item) => sum + item.normalWage, 0);
+    const totalOT = projectSummaryData.reduce((sum, item) => sum + item.otWage, 0);
+    const totalCombined = projectSummaryData.reduce((sum, item) => sum + item.combinedWageOt, 0);
+    const totalPerdiem = projectSummaryData.reduce((sum, item) => sum + item.perdiem, 0);
+    const totalGrand = projectSummaryData.reduce((sum, item) => sum + item.grandTotal, 0);
+    return { totalNormal, totalOT, totalCombined, totalPerdiem, totalGrand };
+  }, [projectSummaryData]);
+
+  const projectPieData = useMemo(() => {
+    if (projectSummaryData.length === 0) return [];
+    const sorted = [...projectSummaryData].sort((a, b) => b.grandTotal - a.grandTotal);
+    if (sorted.length <= 8) {
+      return sorted.map(item => ({
+        name: item.project || 'Unspecified',
+        value: Math.round(item.grandTotal)
+      }));
+    }
+    const top7 = sorted.slice(0, 7);
+    const rest = sorted.slice(7);
+    const restTotal = rest.reduce((sum, item) => sum + item.grandTotal, 0);
+    return [
+      ...top7.map(item => ({
+        name: item.project || 'Unspecified',
+        value: Math.round(item.grandTotal)
+      })),
+      {
+        name: 'อื่นๆ (Others)',
+        value: Math.round(restTotal)
+      }
+    ];
+  }, [projectSummaryData]);
+
+  const exportProjectSummaryCSV = () => {
+    const headers = [
+      'โครงการ (Project / Row Labels)',
+      'ค่าแรงทำงานวันปกติ (บาท) (Normal Wage)',
+      'รวมโอที (บาท) (Total OT)',
+      'รวมค่าแรง + โอที (บาท) (Wage + OT)',
+      'Perdiem (บาท)',
+      'รวมค่าแรง + โอที + สวัสดิการ (บาท) (Grand Total)'
+    ];
+
+    const rows = projectSummaryData.map(item => [
+      item.project,
+      item.normalWage.toFixed(2),
+      item.otWage.toFixed(2),
+      item.combinedWageOt.toFixed(2),
+      item.perdiem.toFixed(2),
+      item.grandTotal.toFixed(2)
+    ]);
+
+    // Sum of everything
+    const totalNormal = projectSummaryData.reduce((sum, item) => sum + item.normalWage, 0);
+    const totalOT = projectSummaryData.reduce((sum, item) => sum + item.otWage, 0);
+    const totalCombined = projectSummaryData.reduce((sum, item) => sum + item.combinedWageOt, 0);
+    const totalPerdiem = projectSummaryData.reduce((sum, item) => sum + item.perdiem, 0);
+    const totalGrand = projectSummaryData.reduce((sum, item) => sum + item.grandTotal, 0);
+
+    const totalsRow = [
+      'Grand Total',
+      totalNormal.toFixed(2),
+      totalOT.toFixed(2),
+      totalCombined.toFixed(2),
+      totalPerdiem.toFixed(2),
+      totalGrand.toFixed(2)
+    ];
+
+    const csvContent = "\uFEFF" + [
+      `รายงานสรุปผลจ่ายแยกตามโครงการ (Project Cost and Compensation Summary Report)`,
+      `ช่วงเวลา: ${startDate} ถึง ${endDate}`,
+      headers.join(','),
+      ...rows.map(r => r.join(',')),
+      totalsRow.join(',')
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Project_Summary_Report_${startDate}_to_${endDate}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // Change specific cells on grid
   const handleDraftChange = (rowId: string, field: keyof TimesheetEntry, value: any) => {
@@ -1473,6 +1713,8 @@ export default function IndividualReport({
   const bgCard = isDark ? 'bg-[#141414] border-white/10 text-white' : 'bg-white border-slate-200 shadow-sm text-slate-800';
   const inputBg = isDark ? 'bg-[#0D0D0D] border-white/10 text-white focus:border-[#D4AF37]' : 'bg-white border-slate-300 text-slate-800 focus:ring-1 focus:ring-[#D4AF37]';
   const sectionTitleColor = isDark ? 'text-[#D4AF37]' : 'text-amber-600';
+  const tableThStyle = isDark ? 'bg-[#1C1C1E] text-gray-400 border-white/5' : 'bg-slate-50 text-slate-500 border-slate-200';
+  const tableTrStyle = isDark ? 'hover:bg-white/[0.02] border-white/5 text-gray-300' : 'hover:bg-slate-50/50 border-slate-100 text-slate-700';
 
   return (
     <div className="space-y-6 animate-fade-in print:bg-white print:text-black print:m-0 print:p-0">
@@ -1527,6 +1769,18 @@ export default function IndividualReport({
               }`}
             >
               📊 ตารางรวมกำลังแรงงาน (Total Staff Matrix)
+            </button>
+            <button
+              onClick={() => setActiveSubTab('project-summary')}
+              className={`text-xs font-bold px-4 py-2.5 rounded-sm transition-all cursor-pointer ${
+                activeSubTab === 'project-summary'
+                  ? 'bg-[#D4AF37] text-black shadow-md border border-[#D4AF37] translate-y-[-1px]'
+                  : isDark 
+                    ? 'bg-[#1C1C1E] text-gray-300 hover:text-white hover:bg-[#2C2C2E] border border-white/10'
+                    : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200 border border-slate-200'
+              }`}
+            >
+              🏢 รายงานสรุปตามโครงการ (Project Summary Matrix)
             </button>
           </div>
         </div>
@@ -2930,6 +3184,445 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
         </div>
           </div>
         )
+      )}
+
+      {activeSubTab === 'project-summary' && (
+        <div className={`p-6 rounded-sm border ${bgCard} text-left space-y-6 animate-fade-in print:hidden`}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-dashed border-gray-500/20 pb-4">
+            <div>
+              <h3 className="text-base font-serif uppercase tracking-wider text-amber-600 dark:text-[#D4AF37] flex items-center gap-2">
+                <Briefcase className="w-5 h-5 text-[#D4AF37]" />
+                รายงานวิเคราะห์ต้นทุนกำลังคนและค่าตอบแทนแยกรายโครงการ (Project Summary Report)
+              </h3>
+              <p className="text-[11px] text-gray-400 mt-1">
+                สรุปค่าแรงงานปกติ (Normal Wage), สะสมโอทีรายชิ้น (Accumulated OT) และเบี้ยเลี้ยงสะสม (Perdiem) แยกหมวดโครงการเป้าหมายในช่วงเวลา
+              </p>
+            </div>
+            <button
+              onClick={exportProjectSummaryCSV}
+              disabled={projectSummaryData.length === 0}
+              className="py-2 px-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-sm text-xs font-bold flex items-center gap-2 transition-all cursor-pointer self-start sm:self-auto shadow-xs"
+            >
+              <Download className="w-4 h-4" />
+              ส่งออกรายงานแยกโครงการ (Excel)
+            </button>
+          </div>
+
+          {/* Filters Area Specific to Project Summary */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 bg-slate-50/50 dark:bg-zinc-900/40 p-4 rounded-sm border border-slate-200/60 dark:border-white/5">
+            {/* Employee selection (Multi-select) */}
+            <div className="relative">
+              <label className="block text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400 mb-1">
+                กรองตามรายชื่อพนักงาน (Select Employees)
+              </label>
+              <button
+                onClick={() => {
+                  setIsProjEmpDropdownOpen(!isProjEmpDropdownOpen);
+                  setIsProjDropdownOpen(false);
+                }}
+                className={`w-full text-left text-xs px-3 py-2 bg-transparent border rounded-sm flex items-center justify-between cursor-pointer focus:outline-hidden ${
+                  isDark 
+                    ? 'border-white/10 text-gray-150 bg-neutral-900 focus:border-[#D4AF37]' 
+                    : 'border-slate-320 text-slate-800 bg-white focus:border-amber-600'
+                }`}
+              >
+                <span className="truncate">
+                  {selectedProjectEmployees.length === 0
+                    ? 'เลือกพนักงานทั้งหมด'
+                    : `เลือกแล้ว ${selectedProjectEmployees.length} คน`}
+                </span>
+                <span className="text-[10px] text-gray-400">▼</span>
+              </button>
+
+              {isProjEmpDropdownOpen && (
+                <div className={`absolute left-0 right-0 mt-1 max-h-60 overflow-y-auto border rounded-xs shadow-xl z-25 p-2 ${
+                  isDark ? 'bg-[#18181B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'
+                }`}>
+                  <div className="flex justify-between items-center pb-2 mb-2 border-b border-dashed border-gray-500/20">
+                    <button
+                      onClick={() => setSelectedProjectEmployees([])}
+                      className="text-[10px] font-bold text-red-500 hover:text-red-600 cursor-pointer"
+                    >
+                      ล้างค่าทั้งหมด (Clear)
+                    </button>
+                    <button
+                      onClick={() => setSelectedProjectEmployees(employees.map(e => e.id))}
+                      className="text-[10px] font-bold text-[#D4AF37] hover:text-amber-500 cursor-pointer"
+                    >
+                      เลือกทั้งหมด (Select All)
+                    </button>
+                  </div>
+                  <div className="space-y-1.5">
+                    {employees.map(emp => {
+                      const isSelected = selectedProjectEmployees.includes(emp.id);
+                      return (
+                        <label
+                          key={emp.id}
+                          className={`flex items-center gap-2 px-2 py-1 rounded-sm text-xs cursor-pointer transition-all ${
+                            isSelected 
+                              ? 'bg-[#D4AF37]/10 text-amber-500 font-bold' 
+                              : isDark ? 'hover:bg-white/5 text-gray-300' : 'hover:bg-slate-50 text-slate-700'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {
+                              if (isSelected) {
+                                setSelectedProjectEmployees(selectedProjectEmployees.filter(id => id !== emp.id));
+                              } else {
+                                setSelectedProjectEmployees([...selectedProjectEmployees, emp.id]);
+                              }
+                            }}
+                            className="rounded-sm border-gray-300 text-amber-600 focus:ring-amber-500"
+                          />
+                          <span className="font-mono text-[10.5px] text-gray-500">{emp.id}</span>
+                          <span className="truncate">{emp.employeeName}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Project selection (Multi-select) */}
+            <div className="relative">
+              <label className="block text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400 mb-1">
+                กรองตามโครงการ (Select Projects)
+              </label>
+              <button
+                onClick={() => {
+                  setIsProjDropdownOpen(!isProjDropdownOpen);
+                  setIsProjEmpDropdownOpen(false);
+                }}
+                className={`w-full text-left text-xs px-3 py-2 bg-transparent border rounded-sm flex items-center justify-between cursor-pointer focus:outline-hidden ${
+                  isDark 
+                    ? 'border-white/10 text-gray-150 bg-neutral-900 focus:border-[#D4AF37]' 
+                    : 'border-slate-320 text-slate-800 bg-white focus:border-amber-600'
+                }`}
+              >
+                <span className="truncate">
+                  {selectedProjectList.length === 0
+                    ? 'เลือกโครงการทั้งหมด'
+                    : `เลือกแล้ว ${selectedProjectList.length} โครงการ`}
+                </span>
+                <span className="text-[10px] text-gray-400">▼</span>
+              </button>
+
+              {isProjDropdownOpen && (
+                <div className={`absolute left-0 right-0 mt-1 max-h-60 overflow-y-auto border rounded-xs shadow-xl z-25 p-2 ${
+                  isDark ? 'bg-[#18181B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'
+                }`}>
+                  <div className="flex justify-between items-center pb-2 mb-2 border-b border-dashed border-gray-500/20">
+                    <button
+                      onClick={() => setSelectedProjectList([])}
+                      className="text-[10px] font-bold text-red-500 hover:text-red-600 cursor-pointer"
+                    >
+                      ล้างค่าทั้งหมด (Clear)
+                    </button>
+                    <button
+                      onClick={() => setSelectedProjectList([...uniqueProjects, 'Unspecified'])}
+                      className="text-[10px] font-bold text-[#D4AF37] hover:text-amber-500 cursor-pointer"
+                    >
+                      เลือกทั้งหมด (Select All)
+                    </button>
+                  </div>
+                  <div className="space-y-1.5">
+                    {[...uniqueProjects, 'Unspecified'].map(proj => {
+                      const isSelected = selectedProjectList.includes(proj);
+                      return (
+                        <label
+                          key={proj}
+                          className={`flex items-center gap-2 px-2 py-1 rounded-sm text-xs cursor-pointer transition-all ${
+                            isSelected 
+                              ? 'bg-[#D4AF37]/10 text-amber-500 font-bold' 
+                              : isDark ? 'hover:bg-white/5 text-gray-300' : 'hover:bg-slate-50 text-slate-700'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {
+                              if (isSelected) {
+                                setSelectedProjectList(selectedProjectList.filter(p => p !== proj));
+                              } else {
+                                setSelectedProjectList([...selectedProjectList, proj]);
+                              }
+                            }}
+                            className="rounded-sm border-gray-300 text-amber-600 focus:ring-amber-500"
+                          />
+                          <span className="truncate font-medium">{proj}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex items-end">
+              <button
+                onClick={() => {
+                  setSelectedProjectEmployees([]);
+                  setSelectedProjectList([]);
+                }}
+                className={`py-2 px-4 rounded-sm text-xs font-bold transition-all cursor-pointer border ${
+                  isDark 
+                    ? 'border-white/10 text-gray-400 hover:text-white bg-neutral-800 hover:bg-neutral-750' 
+                    : 'border-slate-320 text-slate-600 hover:text-slate-800 bg-slate-50 hover:bg-slate-100'
+                }`}
+              >
+                ล้างตัวกรองทั้งหมด (Clear All Filters)
+              </button>
+            </div>
+          </div>
+
+          {/* Executive Summary Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Card 1: Normal Wage */}
+            <div className={`p-4 rounded-sm border flex items-center justify-between transition-all ${
+              isDark ? 'bg-zinc-900/60 border-white/5' : 'bg-slate-50/50 border-slate-200 shadow-xs'
+            }`}>
+              <div className="space-y-1">
+                <span className="text-[10px] uppercase font-bold text-gray-400">ค่าแรงงานวันปกติรวม (Normal Wages)</span>
+                <div className="text-lg font-mono font-bold text-blue-500">
+                  {projectTotals.totalNormal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿
+                </div>
+              </div>
+              <div className="p-2 bg-blue-500/10 text-blue-500 rounded-sm">
+                <Clock className="w-5 h-5" />
+              </div>
+            </div>
+
+            {/* Card 2: Total OT */}
+            <div className={`p-4 rounded-sm border flex items-center justify-between transition-all ${
+              isDark ? 'bg-zinc-900/60 border-white/5' : 'bg-slate-50/50 border-slate-200 shadow-xs'
+            }`}>
+              <div className="space-y-1">
+                <span className="text-[10px] uppercase font-bold text-gray-400">รวมค่าโอทีสะสม (Accumulated OT)</span>
+                <div className="text-lg font-mono font-bold text-amber-500">
+                  {projectTotals.totalOT.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿
+                </div>
+              </div>
+              <div className="p-2 bg-amber-500/10 text-amber-500 rounded-sm">
+                <Coins className="w-5 h-5" />
+              </div>
+            </div>
+
+            {/* Card 3: Total Perdiem */}
+            <div className={`p-4 rounded-sm border flex items-center justify-between transition-all ${
+              isDark ? 'bg-zinc-900/60 border-white/5' : 'bg-slate-50/50 border-slate-200 shadow-xs'
+            }`}>
+              <div className="space-y-1">
+                <span className="text-[10px] uppercase font-bold text-gray-400">เบี้ยเลี้ยงสะสมรวม (Total Perdiem)</span>
+                <div className="text-lg font-mono font-bold text-indigo-500">
+                  {projectTotals.totalPerdiem.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿
+                </div>
+              </div>
+              <div className="p-2 bg-indigo-500/10 text-indigo-500 rounded-sm">
+                <Info className="w-5 h-5" />
+              </div>
+            </div>
+
+            {/* Card 4: Grand Total */}
+            <div className={`p-4 rounded-sm border flex items-center justify-between transition-all ${
+              isDark ? 'bg-emerald-950/20 border-emerald-500/20' : 'bg-emerald-50/50 border-emerald-200 shadow-xs'
+            }`}>
+              <div className="space-y-1">
+                <span className="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-450">ค่าใช้จ่ายสุทธิโครงการรวม (Grand Total)</span>
+                <div className="text-xl font-mono font-black text-emerald-600 dark:text-emerald-400">
+                  {projectTotals.totalGrand.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿
+                </div>
+              </div>
+              <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-sm">
+                <UserCheck className="w-5 h-5" />
+              </div>
+            </div>
+          </div>
+
+          {/* Charts area with layout */}
+          {projectSummaryData.length > 0 && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Cost Breakdown Chart */}
+              <div className={`p-5 rounded-sm border lg:col-span-7 space-y-4 ${
+                isDark ? 'bg-zinc-900/30 border-white/5' : 'bg-slate-50/20 border-slate-200 shadow-xs'
+              }`}>
+                <div className="flex justify-between items-center pb-2 border-b border-dashed border-gray-500/10">
+                  <h4 className="text-xs uppercase font-bold tracking-wider text-slate-400 dark:text-gray-300">
+                    กราฟแสดงโครงสร้างค่าใช้จ่ายสะสมแยกตามโครงการ (Cost Component Breakdown)
+                  </h4>
+                  <span className="text-[9px] font-mono text-gray-500">STACKED BAR CHART</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <div className="min-w-[500px] h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={projectSummaryData}
+                        margin={{ top: 20, right: 20, left: 10, bottom: 50 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"} />
+                        <XAxis 
+                          dataKey="project" 
+                          stroke={isDark ? "#71717a" : "#64748b"}
+                          tick={{ fontSize: 9 }}
+                          angle={-25}
+                          textAnchor="end"
+                          interval={0}
+                          height={60}
+                        />
+                        <YAxis 
+                          stroke={isDark ? "#71717a" : "#64748b"}
+                          tick={{ fontSize: 9 }}
+                          tickFormatter={(val) => `${(val / 1000).toFixed(0)}k`}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            background: isDark ? '#18181b' : '#ffffff',
+                            borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                            borderRadius: '2px',
+                            color: isDark ? '#ffffff' : '#000000',
+                            fontSize: '11px',
+                            textAlign: 'left'
+                          }}
+                          formatter={(value: any) => [`${Number(value).toLocaleString()} ฿`]}
+                        />
+                        <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: '10.5px' }} />
+                        <Bar dataKey="normalWage" name="ค่าแรงปกติ (Normal)" stackId="a" fill="#3b82f6" />
+                        <Bar dataKey="otWage" name="รวมโอที (OT)" stackId="a" fill="#f59e0b" />
+                        <Bar dataKey="perdiem" name="เบี้ยเลี้ยง (Perdiem)" stackId="a" fill="#8350f2" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+
+              {/* Pie Share Chart */}
+              <div className={`p-5 rounded-sm border lg:col-span-5 space-y-4 ${
+                isDark ? 'bg-zinc-900/30 border-white/5' : 'bg-slate-50/20 border-slate-200 shadow-xs'
+              }`}>
+                <div className="flex justify-between items-center pb-2 border-b border-dashed border-gray-500/10">
+                  <h4 className="text-xs uppercase font-bold tracking-wider text-slate-400 dark:text-gray-300">
+                    สัดส่วนค่าใช้จ่ายสะสมรวมโครงการ (%) (Total Budget Share)
+                  </h4>
+                  <span className="text-[9px] font-mono text-gray-500">DONUT PIE CHART</span>
+                </div>
+                <div className="flex flex-col sm:flex-row items-center justify-center h-80 gap-4">
+                  <div className="w-full sm:w-1/2 h-56">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={projectPieData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={50}
+                          outerRadius={80}
+                          paddingAngle={3}
+                          dataKey="value"
+                        >
+                          {projectPieData.map((_entry, index) => (
+                            <Cell key={`cell-${index}`} fill={['#3B82F6', '#10B981', '#F59E0B', '#6366F1', '#EC4899', '#8B5CF6', '#14B8A6', '#F43F5E'][index % 8]} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{
+                            background: isDark ? '#18181b' : '#ffffff',
+                            borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                            borderRadius: '2px',
+                            color: isDark ? '#ffffff' : '#000000',
+                            fontSize: '11px'
+                          }}
+                          formatter={(value: any) => [`${Number(value).toLocaleString()} ฿`]}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  {/* Custom Legend */}
+                  <div className="w-full sm:w-1/2 overflow-y-auto max-h-56 space-y-2 text-[10px] pr-2">
+                    {projectPieData.map((entry, index) => {
+                      const totalBudget = projectTotals.totalGrand || 1;
+                      const percentage = ((entry.value / totalBudget) * 100).toFixed(1);
+                      return (
+                        <div key={index} className="flex items-center justify-between gap-2 border-b border-dashed border-gray-500/5 pb-1">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span 
+                              className="w-2.5 h-2.5 rounded-full shrink-0" 
+                              style={{ backgroundColor: ['#3B82F6', '#10B981', '#F59E0B', '#6366F1', '#EC4899', '#8B5CF6', '#14B8A6', '#F43F5E'][index % 8] }} 
+                            />
+                            <span className="truncate font-semibold text-gray-600 dark:text-gray-300" title={entry.name}>
+                              {entry.name}
+                            </span>
+                          </div>
+                          <span className="font-mono font-bold text-gray-500 dark:text-gray-400 shrink-0">
+                            {percentage}%
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Table Container */}
+          <div className="overflow-x-auto border border-slate-200 dark:border-white/10 rounded-sm">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className={`${tableThStyle} uppercase text-[9.5px] font-bold tracking-widest`}>
+                  <th className="py-3 px-4 font-extrabold text-[#D4AF37]">โครงการ (Project / Row Labels)</th>
+                  <th className="py-3 px-4 text-right font-bold text-slate-800 dark:text-gray-300">ค่าแรงวันปกติ (Normal Wage)</th>
+                  <th className="py-3 px-4 text-right font-bold text-amber-600 dark:text-amber-400">สะสมโอที (Total OT)</th>
+                  <th className="py-3 px-4 text-right font-bold text-slate-705 dark:text-gray-305">รวมค่าแรง + โอที (Wage + OT)</th>
+                  <th className="py-3 px-4 text-right font-bold text-indigo-500 dark:text-indigo-400">เบี้ยเลี้ยงสะสม (Perdiem)</th>
+                  <th className="py-3 px-4 text-right font-black text-emerald-600 dark:text-emerald-450 bg-emerald-500/5 dark:bg-emerald-500/10 border-l border-slate-200 dark:border-white/10">รวมจ่ายสะสมสุทธิทั้งหมด (Grand Total)</th>
+                </tr>
+              </thead>
+              <tbody className={`divide-y ${isDark ? 'divide-white/5 bg-[#141414]' : 'divide-slate-100 bg-white'}`}>
+                {projectSummaryData.length > 0 ? (
+                  projectSummaryData.map((item, idx) => (
+                    <tr key={idx} className={`${tableTrStyle} text-[11px] transition-all`}>
+                      <td className="py-2.5 px-4 font-bold text-slate-850 dark:text-gray-100">{item.project}</td>
+                      <td className="py-2.5 px-4 text-right font-mono text-gray-650 dark:text-gray-300">{item.normalWage.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿</td>
+                      <td className="py-2.5 px-4 text-right font-mono text-amber-653 dark:text-[#D4AF37]">{item.otWage.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿</td>
+                      <td className="py-2.5 px-4 text-right font-mono text-gray-650 dark:text-gray-400">{(item.normalWage + item.otWage).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿</td>
+                      <td className="py-2.5 px-4 text-right font-mono text-indigo-600 dark:text-indigo-400 font-bold">{item.perdiem.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿</td>
+                      <td className="py-2.5 px-4 text-right font-mono font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/5 dark:bg-emerald-500/10 border-l border-slate-200 dark:border-white/10">{item.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-gray-500">
+                      ไม่พบข้อมูลโครงการในช่วงเวลา หรือไม่มีผู้ปฏิบัติงานตรงตามเงื่อนไขที่เลือก
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+              {projectSummaryData.length > 0 && (
+                <tfoot className={`font-bold text-[10.5px] font-mono border-t ${isDark ? 'bg-black text-white border-white/10' : 'bg-slate-50 text-slate-800 border-slate-200'}`}>
+                  <tr className="divide-x divide-slate-200 dark:divide-white/5">
+                    <td className="py-3 px-4 text-right font-extrabold text-slate-500">รวมสุทธิทั้งหมด (Grand Totals):</td>
+                    <td className="py-3 px-4 text-right font-mono text-slate-900 dark:text-white">
+                      {projectSummaryData.reduce((sum, item) => sum + item.normalWage, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿
+                    </td>
+                    <td className="py-3 px-4 text-right font-mono text-amber-653 dark:text-[#D4AF37]">
+                      {projectSummaryData.reduce((sum, item) => sum + item.otWage, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿
+                    </td>
+                    <td className="py-3 px-4 text-right font-mono text-slate-650 dark:text-gray-400">
+                      {projectSummaryData.reduce((sum, item) => sum + item.combinedWageOt, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿
+                    </td>
+                    <td className="py-3 px-4 text-right font-mono text-indigo-600 dark:text-indigo-400">
+                      {projectSummaryData.reduce((sum, item) => sum + item.perdiem, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿
+                    </td>
+                    <td className="py-3 px-4 text-right font-mono font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/5 dark:bg-emerald-500/10">
+                      {projectSummaryData.reduce((sum, item) => sum + item.grandTotal, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        </div>
       )}
 
       {/* 4. HIGH FIDELITY MULTI-EMPLOYEE BATCH PRINT / SINGLE VIEW PORTRAIT OVERLAY FOR A4 PRINTING */}

@@ -21,6 +21,8 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
   const [startDate, setStartDate] = useState<string>('2026-03-21');
   const [endDate, setEndDate] = useState<string>('2026-04-20');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
+  const [isEmployeeDropdownOpen, setIsEmployeeDropdownOpen] = useState(false);
 
   // Editable other components per employee to prevent rigid states
   const [allowances, setAllowances] = useState<Record<string, number>>(() => {
@@ -460,6 +462,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
     let grandStudentLoan = 0;
     let grandGross = 0;
     let grandNet = 0;
+    let grandPerdiem = 0;
 
     payrollDetails.forEach(p => {
       grandNormalPay += p.baseNormalPay;
@@ -473,6 +476,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
       grandStudentLoan += p.studentLoan;
       grandGross += p.totalIncome;
       grandNet += p.netIncome;
+      grandPerdiem += p.totalPerdiem;
     });
 
     return {
@@ -486,7 +490,8 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
       sso: Math.round(grandSSO),
       studentLoan: Math.round(grandStudentLoan),
       gross: Number(grandGross.toFixed(2)),
-      net: Number(grandNet.toFixed(2))
+      net: Number(grandNet.toFixed(2)),
+      perdiem: Number(grandPerdiem.toFixed(2))
     };
   }, [payrollDetails]);
 
@@ -495,11 +500,15 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
     return payrollDetails.filter(p => {
       const matchSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           p.id.toLowerCase().includes(searchQuery.toLowerCase());
-      // Show profiles that have work days or search results
-      if (searchQuery) return matchSearch;
-      return p.daysWorked > 0 || p.totalIncome > 0;
+      
+      const matchEmployeeSelect = selectedEmployeeIds.length === 0 || selectedEmployeeIds.includes(p.id);
+
+      if (searchQuery) {
+        return matchSearch && matchEmployeeSelect;
+      }
+      return (p.daysWorked > 0 || p.totalIncome > 0) && matchEmployeeSelect;
     });
-  }, [payrollDetails, searchQuery]);
+  }, [payrollDetails, searchQuery, selectedEmployeeIds]);
 
   // Compute day-by-day earnings details for the selected period
   const dailyEarningsBreakdown = useMemo(() => {
@@ -600,6 +609,63 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
     if (!selectedSlipEmpId) return null;
     return payrollDetails.find(p => p.id === selectedSlipEmpId) || null;
   }, [payrollDetails, selectedSlipEmpId]);
+
+  // Export payroll core matrix to CSV (Excel compatible)
+  const exportPayrollCSV = () => {
+    const headers = [
+      'รหัสพนักงาน (Employee ID)',
+      'ชื่อพนักงาน (Employee Name)',
+      'ประเภทจ้าง (Schedule Type)',
+      'วันเข้าปฏิบัติงาน (Days Worked)',
+      'ค่าจ้างมูลฐาน (Base Normal Pay)',
+      'ยอดสะสม OT (Accumulated OT)',
+      'ค่าเบี้ยเลี้ยงสะสม (Perdiem)',
+      'เงินเพิ่มพิเศษอื่น ๆ (Other Income)',
+      'รายได้รวม (Gross Income)',
+      'เงินหักอื่น ๆ (Other Deduction)',
+      'หักภาษี 3% (WHT 3%)',
+      'หักประกันสังคม (SSO)',
+      'หัก กยศ. (Student Loan)',
+      'รายรับสุทธิ (Net Income)',
+      'ธนาคาร (Bank)',
+      'เลขบัญชี (Account Number)'
+    ];
+
+    const rows = filteredPayroll.map(p => [
+      p.id,
+      `"${p.name}"`,
+      p.scheduleType,
+      p.daysWorked,
+      p.baseNormalPay,
+      (p.ot15Wage + p.ot20Wage + p.ot30Wage),
+      p.totalPerdiem,
+      p.manualOtherIncome,
+      p.totalIncome,
+      p.otherDeduction,
+      p.tax,
+      p.sso,
+      p.studentLoan,
+      p.netIncome,
+      p.bankName,
+      `'${p.bankAccount}`
+    ]);
+
+    const csvContent = "\uFEFF" + [
+      `รายงานสรุปแผ่นจ่ายเงินเดือนและโอทีระดับบุคคล (Payroll Core Matrix)`,
+      `รอบบัญชีตั้งแต่วันที่: ${startDate} ถึง ${endDate}`,
+      headers.join(','),
+      ...rows.map(r => r.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Payroll_Core_Matrix_${startDate}_to_${endDate}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // Synchronize the current payroll cycle with Supabase (Sumary-Mount & RateCalulate tables)
   const handleSyncToSupabase = async () => {
@@ -816,7 +882,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
           </div>
         </div>
         {/* Date Filters Grid */}
-        <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 mt-5 pt-5 border-t ${isDark ? 'border-white/10' : 'border-slate-205'}`}>
+        <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-5 pt-5 border-t ${isDark ? 'border-white/10' : 'border-slate-205'}`}>
           <div className="space-y-1.5 text-left">
             <label className="text-[10px] font-bold text-amber-600 dark:text-[#D4AF37] uppercase tracking-wider block">วันเริ่มต้นรอบจ่าย (Start Cutoff)</label>
             <input
@@ -840,6 +906,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
           </div>
 
           <div className="space-y-1.5 flex flex-col justify-end text-left">
+            <label className="text-[10px] font-bold text-amber-600 dark:text-[#D4AF37] uppercase tracking-wider block">ค้นหาด่วน (Search)</label>
             <div className="relative">
               <Search className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -850,6 +917,71 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className={`w-full text-xs pl-9 pr-3 py-2 rounded-sm focus:outline-hidden ${inputBgStyle}`}
               />
+            </div>
+          </div>
+
+          {/* Multi-Select Employee Filter */}
+          <div className="space-y-1.5 flex flex-col justify-end text-left relative">
+            <label className="text-[10px] font-bold text-amber-600 dark:text-[#D4AF37] uppercase tracking-wider block">เลือกพนักงานเฉพาะกลุ่ม ({selectedEmployeeIds.length === 0 ? 'ทั้งหมด' : `${selectedEmployeeIds.length} คน`})</label>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsEmployeeDropdownOpen(!isEmployeeDropdownOpen)}
+                className={`w-full text-xs text-left py-2 px-3 rounded-sm flex items-center justify-between focus:outline-hidden ${inputBgStyle}`}
+              >
+                <span className="truncate">
+                  {selectedEmployeeIds.length === 0 
+                    ? 'แสดงพนักงานทุกคน' 
+                    : `เลือกแล้ว ${selectedEmployeeIds.length} คน`
+                  }
+                </span>
+                <span className="text-gray-400 shrink-0 select-none">▼</span>
+              </button>
+
+              {isEmployeeDropdownOpen && (
+                <div className={`absolute left-0 right-0 mt-1 w-full rounded-md shadow-xl border z-50 p-2 max-h-72 overflow-y-auto ${
+                  isDark ? 'bg-[#141414] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'
+                }`}>
+                  <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-white/10 text-[10px]">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedEmployeeIds([])}
+                      className="text-[#D4AF37] hover:underline font-bold"
+                    >
+                      ล้างตัวเลือกทั้งหมด
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsEmployeeDropdownOpen(false)}
+                      className="text-gray-400 hover:underline font-bold"
+                    >
+                      ปิด
+                    </button>
+                  </div>
+                  <div className="space-y-1">
+                    {payrollDetails.map(p => {
+                      const isChecked = selectedEmployeeIds.includes(p.id);
+                      return (
+                        <label key={p.id} className="flex items-center gap-2 hover:bg-white/5 p-1 rounded cursor-pointer text-xs">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {
+                              if (isChecked) {
+                                setSelectedEmployeeIds(selectedEmployeeIds.filter(id => id !== p.id));
+                              } else {
+                                setSelectedEmployeeIds([...selectedEmployeeIds, p.id]);
+                              }
+                            }}
+                            className="rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                          />
+                          <span className="truncate">{p.name} ({p.id})</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -973,6 +1105,14 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                 <Printer className="w-3.5 h-3.5" />
                 พิมพ์สรุปทำจ่าย (Core Matrix)
               </button>
+              <button
+                onClick={exportPayrollCSV}
+                disabled={filteredPayroll.length === 0}
+                className="py-1.5 px-3 bg-amber-500 hover:bg-amber-600 text-black rounded text-[10.5px] font-bold flex items-center gap-1.5 cursor-pointer transition-all border border-amber-500/10 shadow-xs hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:scale-100 whitespace-nowrap"
+              >
+                <Download className="w-3.5 h-3.5" />
+                ส่งออกสรุปทำจ่าย Excel (CSV)
+              </button>
             </div>
           </div>
 
@@ -986,6 +1126,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                 <th className="py-2.5 px-3 text-center font-bold">วันทำ</th>
                 <th className="py-2.5 px-3 text-right text-slate-800 dark:text-gray-300 font-bold">ค่าจ้างมูลฐาน</th>
                 <th className="py-2.5 px-3 text-right text-amber-653 dark:text-[#D4AF37] font-bold">ยอดสะสม OT</th>
+                <th className="py-2.5 px-3 text-right text-indigo-500 dark:text-indigo-400 font-bold">เบี้ยเลี้ยง (Perdiem)</th>
                 <th className="py-2.5 px-3 text-center font-bold text-amber-600 dark:text-amber-400">Other Income (กรอกเอง)</th>
                 <th className="py-2.5 px-3 text-right font-extrabold text-teal-600 dark:text-teal-400 bg-teal-500/5 dark:bg-teal-500/10 border-x border-slate-200/50 dark:border-white/15">รายได้รวม</th>
                 <th className="py-2.5 px-3 text-center font-bold text-red-500">Deduction (กรอกเอง)</th>
@@ -1018,6 +1159,11 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                     {/* Accumulated OT */}
                     <td className="py-2 px-3 text-right font-mono text-amber-653 dark:text-[#D4AF37]">
                       {(p.ot15Wage + p.ot20Wage + p.ot30Wage).toLocaleString()}
+                    </td>
+
+                    {/* Perdiem (เบี้ยเลี้ยงสะสม) */}
+                    <td className="py-2 px-3 text-right font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                      {p.totalPerdiem.toLocaleString()}
                     </td>
 
                     {/* Other Income (กรอกเอง) */}
@@ -1130,7 +1276,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                 ))
               ) : (
                 <tr>
-                  <td colSpan={12} className="text-center py-6 text-gray-500">
+                  <td colSpan={13} className="text-center py-6 text-gray-500">
                     ไม่พบข้อมูลผู้ปฏิบัติงานมียอดจัดรอบ หรือข้อมูลประวัติ ณ ขณะนี้
                   </td>
                 </tr>
@@ -1142,6 +1288,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                   <td colSpan={4} className="py-2.5 px-3 text-right text-gray-500 font-bold">ยอดเงินรวมทั้งสิ้นรอบจ่าย (Totals):</td>
                   <td className="py-2.5 px-3 text-right text-slate-800 dark:text-gray-100">{totals.normalPay.toLocaleString()}</td>
                   <td className="py-2.5 px-3 text-right text-amber-653 dark:text-[#D4AF37]">{(totals.ot15 + totals.ot20 + totals.ot30).toLocaleString()}</td>
+                  <td className="py-2.5 px-3 text-right text-indigo-600 dark:text-indigo-400">{totals.perdiem.toLocaleString()}</td>
                   <td className="py-2.5 px-3 text-right text-slate-705 dark:text-gray-305">{totals.allowance.toLocaleString()}</td>
                   <td className="py-2.5 px-3 text-right text-teal-600 dark:text-teal-400 bg-teal-500/5 dark:bg-teal-500/10 border-x border-slate-200/50 dark:border-white/15 font-extrabold">{totals.gross.toLocaleString()} ฿</td>
                   <td className="py-2.5 px-3 text-right text-red-500 dark:text-red-400">{totals.otherDeduction.toLocaleString()}</td>
@@ -1950,6 +2097,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                       <th className="p-2 border border-slate-400 text-center text-black">วันทำงาน</th>
                       <th className="p-2 border border-slate-400 text-right text-black">ค่าจ้างมูลฐาน</th>
                       <th className="p-2 border border-slate-400 text-right text-black">สะสม OT</th>
+                      <th className="p-2 border border-slate-400 text-right text-black">เบี้ยเลี้ยง (Perdiem)</th>
                       <th className="p-2 border border-slate-400 text-right text-black">เงินเพิ่มพิเศษ</th>
                       <th className="p-2 border border-slate-400 text-right text-black font-extrabold bg-slate-50">รายได้รวม</th>
                       <th className="p-2 border border-slate-400 text-right text-black">เงินหักอื่น ๆ</th>
@@ -1968,6 +2116,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                         <td className="p-2 border border-slate-300 text-center font-mono">{p.daysWorked} วัน</td>
                         <td className="p-2 border border-slate-300 text-right font-mono">{p.baseNormalPay.toLocaleString()}</td>
                         <td className="p-2 border border-slate-300 text-right font-mono">{(p.ot15Wage + p.ot20Wage + p.ot30Wage).toLocaleString()}</td>
+                        <td className="p-2 border border-slate-300 text-right font-mono text-indigo-700">{p.totalPerdiem.toLocaleString()}</td>
                         <td className="p-2 border border-slate-300 text-right font-mono">{p.extraAllowance.toLocaleString()}</td>
                         <td className="p-2 border border-slate-300 text-right font-mono font-bold bg-slate-50">{p.totalIncome.toLocaleString()}</td>
                         <td className="p-2 border border-slate-300 text-right font-mono">{p.otherDeduction.toLocaleString()}</td>
@@ -1986,6 +2135,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                       </td>
                       <td className="p-2 border border-slate-400 text-right font-mono text-black">{totals.normalPay.toLocaleString()}</td>
                       <td className="p-2 border border-slate-400 text-right font-mono text-black">{(totals.ot15 + totals.ot20 + totals.ot30).toLocaleString()}</td>
+                      <td className="p-2 border border-slate-400 text-right font-mono text-indigo-700">{totals.perdiem.toLocaleString()}</td>
                       <td className="p-2 border border-slate-400 text-right font-mono text-black">
                         {filteredPayroll.reduce((sum, item) => sum + item.extraAllowance, 0).toLocaleString()}
                       </td>
