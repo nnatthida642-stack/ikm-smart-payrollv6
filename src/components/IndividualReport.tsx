@@ -3198,14 +3198,25 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
                 สรุปค่าแรงงานปกติ (Normal Wage), สะสมโอทีรายชิ้น (Accumulated OT) และเบี้ยเลี้ยงสะสม (Perdiem) แยกหมวดโครงการเป้าหมายในช่วงเวลา
               </p>
             </div>
-            <button
-              onClick={exportProjectSummaryCSV}
-              disabled={projectSummaryData.length === 0}
-              className="py-2 px-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-sm text-xs font-bold flex items-center gap-2 transition-all cursor-pointer self-start sm:self-auto shadow-xs"
-            >
-              <Download className="w-4 h-4" />
-              ส่งออกรายงานแยกโครงการ (Excel)
-            </button>
+            <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+              <button
+                onClick={exportProjectSummaryCSV}
+                disabled={projectSummaryData.length === 0}
+                className="py-2 px-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-sm text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-xs"
+              >
+                <Download className="w-4 h-4" />
+                ส่งออกรายงานแยกโครงการ (Excel)
+              </button>
+              
+              <button
+                onClick={() => window.print()}
+                disabled={projectSummaryData.length === 0}
+                className="py-2 px-4 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white rounded-sm text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-xs"
+              >
+                <Printer className="w-4 h-4" />
+                พิมพ์รายงานแยกโครงการ (PDF)
+              </button>
+            </div>
           </div>
 
           {/* Filters Area Specific to Project Summary */}
@@ -3688,6 +3699,10 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
               border-style: solid !important;
               border-width: 1px !important;
             }
+            .print-project-table th, .print-project-table td {
+              font-size: 8.5px !important;
+              padding: 3px 2px !important;
+            }
             input {
               border: none !important;
               outline: none !important;
@@ -3701,18 +3716,267 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
           }
         ` }} />
 
-        {/* If batch printing, run a loop for ALL employees. 
-            If not batch printing, just render the SINGLE SELECTED employee's timesheet so they can print his sheet individually! */}
-        {(isBatchPrinting ? employees : [activeEmployee]).filter(Boolean).map((emp, empIdx, arr) => {
-          if (!emp) return null;
-          
-          const empHourlyRate = getEmployeeHourlyRate(emp);
-          const stats = getEmployeeSheetStats(emp, empHourlyRate);
-          const empPosition = emp.position || 'พนักงาน';
-          const empId = emp.id || '';
+        {/* If viewing project summary, render the beautiful project summary PDF page.
+            Otherwise, loop for employee timesheets. */}
+        {activeSubTab === 'project-summary' ? (
+          <div className="bg-white text-slate-900 font-sans p-6 w-full max-w-[760px] mx-auto space-y-5" style={{ minHeight: '277mm' }}>
+            {/* Header Block */}
+            <div className="flex justify-between items-start border-b-2 border-slate-800 pb-2 mb-1">
+              <div className="flex items-center gap-3">
+                <img 
+                  src="https://lh3.googleusercontent.com/d/1HMZ8z-TK8bmpxuA3b4nu2ybopYiz-yGN" 
+                  className="h-10 w-auto object-contain shrink-0" 
+                  alt="IKM Testing Logo" 
+                  referrerPolicy="no-referrer" 
+                />
+                <div className="text-left">
+                  <h1 className="text-xs font-black tracking-wider uppercase font-sans text-black leading-none">IKM Testing (Thailand) Co., Ltd.</h1>
+                  <p className="text-[7.5px] text-slate-500 leading-tight font-semibold mt-1">155/167 Moo 5. Samnakthon Sub-district, Banchang District, Rayong 21130 Thailand.</p>
+                </div>
+              </div>
 
-          const getEmpTableRows = (empName: string, empIdVal: string) => {
-            const list: { draft: any; rowId: string; dStr: string; suppKey: string; isMulti: boolean }[] = [];
+              <div className="text-right shrink-0">
+                <div className="border border-dashed border-slate-400 px-3 py-0.5 text-center rounded bg-slate-50 font-bold max-w-44">
+                  <span className="text-[7.5px] uppercase tracking-widest text-slate-500 block font-mono">Date Period</span>
+                  <span className="text-[9.5px] text-slate-900 font-extrabold font-serif uppercase tracking-wider">
+                    {startDate.split('-').reverse().join('/')} - {endDate.split('-').reverse().join('/')}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Title */}
+            <div className="text-center my-2">
+              <h2 className="text-xs font-black tracking-widest uppercase border-b border-slate-900 inline-block px-4 pb-0.5" style={{ letterSpacing: '0.15em' }}>
+                PROJECT SUMMARY COST REPORT
+              </h2>
+              <p className="text-[8.5px] text-slate-500 mt-0.5 font-bold">
+                รายงานวิเคราะห์ต้นทุนกำลังคนและค่าตอบแทนแยกรายโครงการ
+              </p>
+            </div>
+
+            {/* Financial Indicator Cards */}
+            <div className="grid grid-cols-4 gap-2 text-left">
+              <div className="border border-slate-300 p-2 rounded bg-slate-50/50">
+                <span className="text-[7.5px] uppercase tracking-wider text-slate-500 font-bold block">Normal Wages</span>
+                <span className="text-[10px] font-mono font-bold text-slate-900 block mt-0.5">
+                  {projectTotals.totalNormal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿
+                </span>
+              </div>
+              <div className="border border-slate-300 p-2 rounded bg-slate-50/50">
+                <span className="text-[7.5px] uppercase tracking-wider text-slate-500 font-bold block">Accumulated OT</span>
+                <span className="text-[10px] font-mono font-bold text-slate-900 block mt-0.5">
+                  {projectTotals.totalOT.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿
+                </span>
+              </div>
+              <div className="border border-slate-300 p-2 rounded bg-slate-50/50">
+                <span className="text-[7.5px] uppercase tracking-wider text-slate-500 font-bold block">Total Perdiem</span>
+                <span className="text-[10px] font-mono font-bold text-slate-900 block mt-0.5">
+                  {projectTotals.totalPerdiem.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿
+                </span>
+              </div>
+              <div className="border border-emerald-450 p-2 rounded bg-emerald-500/5">
+                <span className="text-[7.5px] uppercase tracking-wider text-emerald-800 font-black block">Grand Total Cost</span>
+                <span className="text-[11px] font-mono font-black text-emerald-800 block mt-0.5">
+                  {projectTotals.totalGrand.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿
+                </span>
+              </div>
+            </div>
+
+            {/* Visual Charts Area */}
+            {projectSummaryData.length > 0 && (
+              <div className="grid grid-cols-12 gap-3 items-center">
+                {/* Cost Breakdown Bar Chart */}
+                <div className="col-span-7 border border-slate-200 p-2 rounded bg-slate-50/10 text-center">
+                  <div className="text-[7.5px] uppercase font-bold text-slate-400 mb-1 tracking-wider">
+                    Cost Component Breakdown (Top 10 Projects)
+                  </div>
+                  <div className="flex justify-center">
+                    <BarChart
+                      width={380}
+                      height={120}
+                      data={projectSummaryData.slice(0, 10)}
+                      margin={{ top: 5, right: 10, left: 0, bottom: 20 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis 
+                        dataKey="project" 
+                        stroke="#475569"
+                        tick={{ fontSize: 6.5 }}
+                        angle={-15}
+                        textAnchor="end"
+                        interval={0}
+                      />
+                      <YAxis 
+                        stroke="#475569"
+                        tick={{ fontSize: 6.5 }}
+                        tickFormatter={(val) => `${(val / 1000).toFixed(0)}k`}
+                      />
+                      <Bar dataKey="normalWage" name="Normal" stackId="a" fill="#3b82f6" isAnimationActive={false} />
+                      <Bar dataKey="otWage" name="OT" stackId="a" fill="#f59e0b" isAnimationActive={false} />
+                      <Bar dataKey="perdiem" name="Perdiem" stackId="a" fill="#8350f2" isAnimationActive={false} />
+                    </BarChart>
+                  </div>
+                </div>
+
+                {/* Pie Share Chart */}
+                <div className="col-span-5 border border-slate-200 p-2 rounded bg-slate-50/10">
+                  <div className="text-[7.5px] uppercase font-bold text-slate-400 mb-1 tracking-wider text-center">
+                    Total Budget Share (%)
+                  </div>
+                  <div className="flex items-center justify-between gap-1 h-[120px]">
+                    <div className="shrink-0 flex items-center justify-center">
+                      <PieChart width={110} height={110}>
+                        <Pie
+                          data={projectPieData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={18}
+                          outerRadius={38}
+                          paddingAngle={2}
+                          dataKey="value"
+                          isAnimationActive={false}
+                        >
+                          {projectPieData.map((_entry, index) => (
+                            <Cell key={`cell-${index}`} fill={['#3B82F6', '#10B981', '#F59E0B', '#6366F1', '#EC4899', '#8B5CF6', '#14B8A6', '#F43F5E'][index % 8]} />
+                          ))}
+                        </Pie>
+                      </PieChart>
+                    </div>
+                    {/* Custom Compact Legend for Print */}
+                    <div className="flex-1 overflow-hidden space-y-0.5 text-[7px] leading-none pr-1">
+                      {projectPieData.slice(0, 6).map((entry, index) => {
+                        const totalBudget = projectTotals.totalGrand || 1;
+                        const percentage = ((entry.value / totalBudget) * 100).toFixed(1);
+                        return (
+                          <div key={index} className="flex items-center justify-between gap-1 border-b border-dashed border-slate-200 pb-0.5">
+                            <div className="flex items-center gap-1 min-w-0">
+                              <span 
+                                className="w-1.5 h-1.5 rounded-full shrink-0" 
+                                style={{ backgroundColor: ['#3B82F6', '#10B981', '#F59E0B', '#6366F1', '#EC4899', '#8B5CF6', '#14B8A6', '#F43F5E'][index % 8] }} 
+                              />
+                              <span className="truncate font-semibold text-slate-600" style={{ maxWidth: '65px' }}>
+                                {entry.name}
+                              </span>
+                            </div>
+                            <span className="font-mono font-bold text-slate-500 shrink-0">
+                              {percentage}%
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Detailed Table */}
+            <div className="border border-slate-400 overflow-hidden rounded-xs mt-1">
+              <table className="w-full text-left text-[8px] text-slate-900 table-fixed border-collapse print-project-table">
+                <thead className="bg-slate-100 text-slate-800 text-[7.5px] font-bold text-center border-b border-slate-400">
+                  <tr className="divide-x divide-slate-400">
+                    <th className="py-1 px-1.5 text-left font-extrabold w-[180px]">โครงการ (Project / Row Labels)</th>
+                    <th className="py-1 px-1 text-right font-bold w-[90px]">ค่าแรงทำงานปกติ (Normal)</th>
+                    <th className="py-1 px-1 text-right font-bold w-[80px]">สะสมโอที (OT)</th>
+                    <th className="py-1 px-1 text-right font-bold w-[95px]">รวมค่าแรง + โอที (Wage+OT)</th>
+                    <th className="py-1 px-1 text-right font-bold w-[80px]">เบี้ยเลี้ยง (Perdiem)</th>
+                    <th className="py-1 px-1.5 text-right font-black w-[115px] bg-emerald-50 text-emerald-800">รวมสุทธิทั้งหมด (Grand Total)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {projectSummaryData.length > 0 ? (
+                    projectSummaryData.map((item, idx) => (
+                      <tr key={idx} className="divide-x divide-slate-200 text-[7.5px] h-5">
+                        <td className="py-0.5 px-1.5 text-left font-bold text-slate-900 truncate">{item.project}</td>
+                        <td className="py-0.5 px-1 text-right font-mono text-slate-800">{item.normalWage.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿</td>
+                        <td className="py-0.5 px-1 text-right font-mono text-slate-800">{item.otWage.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿</td>
+                        <td className="py-0.5 px-1 text-right font-mono text-slate-500">{(item.normalWage + item.otWage).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿</td>
+                        <td className="py-0.5 px-1 text-right font-mono text-indigo-850 font-bold">{item.perdiem.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿</td>
+                        <td className="py-0.5 px-1.5 text-right font-mono font-black text-emerald-700 bg-emerald-500/5">{item.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="py-4 text-center text-slate-400">No project data available.</td>
+                    </tr>
+                  )}
+                </tbody>
+                <tfoot className="bg-slate-50 font-mono text-[7.5px] font-bold text-center border-t-2 border-slate-800">
+                  <tr className="divide-x divide-slate-200">
+                    <td className="py-1 px-1.5 text-right font-extrabold text-slate-600">รวมสุทธิทั้งหมด (Grand Totals):</td>
+                    <td className="py-1 px-1 text-right font-mono text-slate-900">
+                      {projectTotals.totalNormal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿
+                    </td>
+                    <td className="py-1 px-1 text-right font-mono text-amber-900">
+                      {projectTotals.totalOT.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿
+                    </td>
+                    <td className="py-1 px-1 text-right font-mono text-slate-500">
+                      {projectTotals.totalCombined.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿
+                    </td>
+                    <td className="py-1 px-1 text-right font-mono text-indigo-900">
+                      {projectTotals.totalPerdiem.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿
+                    </td>
+                    <td className="py-1 px-1.5 text-right font-mono font-black text-emerald-800 bg-emerald-50">
+                      {projectTotals.totalGrand.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            {/* Symmetric Signatures Panel */}
+            <div className="grid grid-cols-3 gap-2 pt-2 text-center text-[7.5px] text-slate-800 font-medium border-t border-dashed border-slate-300 mt-3 font-sans">
+              <div className="border border-slate-300 p-1.5 rounded bg-slate-50/30 flex flex-col justify-between h-[80px]">
+                <span className="text-[7px] text-slate-500 uppercase font-bold tracking-wider block text-left">Issued by :</span>
+                <div className="flex flex-col items-center">
+                  <span className="font-serif italic text-slate-600 text-[9px]" style={{ fontFamily: 'Dancing Script, cursive' }}>{issuedByInput}</span>
+                  <div className="border-b border-slate-300 w-full text-center font-bold text-slate-900 text-[8.5px] pb-0.5">
+                    {issuedByInput}
+                  </div>
+                  <div className="text-[6px] text-slate-400 mt-0.5 uppercase font-mono">Date: {endDate.split('-').reverse().join('/')}</div>
+                </div>
+              </div>
+
+              <div className="border border-slate-300 p-1.5 rounded bg-slate-50/30 flex flex-col justify-between h-[80px]">
+                <span className="text-[7px] text-slate-500 uppercase font-bold tracking-wider block text-left">Check by :</span>
+                <div className="flex flex-col items-center">
+                  <span className="font-serif italic text-slate-600 text-[9px]" style={{ fontFamily: 'Dancing Script, cursive' }}>{checkedByInput}</span>
+                  <div className="border-b border-slate-300 w-full text-center font-bold text-slate-900 text-[8.5px] pb-0.5">
+                    {checkedByInput}
+                  </div>
+                  <div className="text-[6px] text-slate-400 mt-0.5 uppercase font-mono">Date: {endDate.split('-').reverse().join('/')}</div>
+                </div>
+              </div>
+
+              <div className="border border-slate-300 p-1.5 rounded bg-slate-50/30 flex flex-col justify-between h-[80px]">
+                <span className="text-[7px] text-emerald-750 uppercase font-bold tracking-wider block text-left">Approved by :</span>
+                <div className="flex flex-col items-center">
+                  <span className="font-serif italic text-emerald-600 font-black text-[9px]" style={{ fontFamily: 'Dancing Script, cursive' }}>{approvedByInput}</span>
+                  <div className="border-b border-slate-300 w-full text-center font-black text-emerald-800 text-[8.5px] pb-0.5">
+                    {approvedByInput}
+                  </div>
+                  <div className="text-[6px] text-slate-400 mt-0.5 uppercase font-mono">Date: {endDate.split('-').reverse().join('/')}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Custom footer line */}
+            <div className="pt-1 border-t border-slate-200 text-right text-[6px] text-slate-400 font-mono uppercase tracking-widest block">
+              IKM Testing (Thailand) • CONFIDENTIAL PROJECT SUMMARY REPORT
+            </div>
+          </div>
+        ) : (
+          (isBatchPrinting ? employees : [activeEmployee]).filter(Boolean).map((emp, empIdx, arr) => {
+            if (!emp) return null;
+            
+            const empHourlyRate = getEmployeeHourlyRate(emp);
+            const stats = getEmployeeSheetStats(emp, empHourlyRate);
+            const empPosition = emp.position || 'พนักงาน';
+            const empId = emp.id || '';
+  
+            const getEmpTableRows = (empName: string, empIdVal: string) => {
+              const list: { draft: any; rowId: string; dStr: string; suppKey: string; isMulti: boolean }[] = [];
             renderedDates.forEach(dStr => {
               const dayDrafts = ((empName.toLowerCase().trim() === selectedEmpName?.toLowerCase().trim()
                 ? Object.values(draftEntries)
@@ -4133,7 +4397,7 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
               </div>
             </div>
           );
-        })}
+        }))}
       </div>,
       document.body
     )}
