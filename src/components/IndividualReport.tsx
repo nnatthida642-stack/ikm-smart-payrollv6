@@ -168,8 +168,8 @@ export default function IndividualReport({
   const [projectInput, setProjectInput] = useState<string>('');
   
   // Signature custom editable input states
-  const [issuedByInput, setIssuedByInput] = useState<string>('Ananta S.');
-  const [checkedByInput, setCheckedByInput] = useState<string>('Ananta S.');
+  const [issuedByInput, setIssuedByInput] = useState<string>('Jidapa S.');
+  const [checkedByInput, setCheckedByInput] = useState<string>('Upadee T.');
   const [approvedByInput, setApprovedByInput] = useState<string>('Apiyut N.');
 
   // Notification feedback state
@@ -2690,7 +2690,7 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
               <div className="border border-slate-300 p-2.5 rounded bg-slate-50/50 flex flex-col justify-between h-[115px]">
                 <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">Issued by :</span>
                 <div className="flex flex-col items-center">
-                  <span className="font-serif italic text-slate-650 mb-0.5" style={{ fontFamily: 'Dancing Script, cursive' }}>Ananta S.</span>
+                  <span className="font-serif italic text-slate-650 mb-0.5" style={{ fontFamily: 'Dancing Script, cursive' }}>{issuedByInput}</span>
                   <input
                     type="text"
                     value={issuedByInput}
@@ -2705,7 +2705,7 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
               <div className="border border-slate-300 p-2.5 rounded bg-slate-50/50 flex flex-col justify-between h-[115px]">
                 <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">Check by :</span>
                 <div className="flex flex-col items-center">
-                  <span className="font-serif italic text-slate-650 mb-0.5">Ananta S.</span>
+                  <span className="font-serif italic text-slate-650 mb-0.5" style={{ fontFamily: 'Dancing Script, cursive' }}>{checkedByInput}</span>
                   <input
                     type="text"
                     value={checkedByInput}
@@ -3120,7 +3120,7 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
               <div className="border border-slate-300 p-2.5 rounded bg-slate-50/50 flex flex-col justify-between h-[115px]">
                 <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">Issued by :</span>
                 <div className="flex flex-col items-center">
-                  <span className="font-serif italic text-slate-650 mb-0.5" style={{ fontFamily: 'Dancing Script, cursive' }}>Ananta S.</span>
+                  <span className="font-serif italic text-slate-650 mb-0.5" style={{ fontFamily: 'Dancing Script, cursive' }}>{issuedByInput}</span>
                   <input
                     type="text"
                     value={issuedByInput}
@@ -3134,7 +3134,7 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
               <div className="border border-slate-300 p-2.5 rounded bg-slate-50/50 flex flex-col justify-between h-[115px]">
                 <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">Check by :</span>
                 <div className="flex flex-col items-center">
-                  <span className="font-serif italic text-slate-650 mb-0.5">Ananta S.</span>
+                  <span className="font-serif italic text-slate-650 mb-0.5" style={{ fontFamily: 'Dancing Script, cursive' }}>{checkedByInput}</span>
                   <input
                     type="text"
                     value={checkedByInput}
