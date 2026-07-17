@@ -364,8 +364,8 @@ export default function IndividualReport({
                 perdiem: parseFloat(item.Perdiem || 0),
                 advance: parseFloat(item.Advance || 0),
                 jobBonus: parseFloat(item.JobBonus || 0),
-                confineSpace: parseFloat(item.ConfineSpace || 0),
-                incentive: parseFloat(item.Incentive || 0),
+                confineSpace: parseFloat(item.ConfineSpace || item.Advance || 0),
+                incentive: parseFloat(item.Incentive || item.JobBonus || 0),
                 remarkOverride: item.Remark || ''
               };
             });
@@ -937,8 +937,8 @@ export default function IndividualReport({
               EmployeeName: activeEmployee.employeeName,
               Date: parts[1],
               Perdiem: Number(supp.perdiem || 0),
-              Advance: Number(supp.advance || 0),
-              JobBonus: Number(supp.jobBonus || 0),
+              Advance: Number(supp.confineSpace || 0),
+              JobBonus: Number(supp.incentive || 0),
               ConfineSpace: Number(supp.confineSpace || 0),
               Incentive: Number(supp.incentive || 0),
               Remark: supp.remarkOverride || ''
@@ -1012,8 +1012,8 @@ export default function IndividualReport({
             EmployeeName: activeEmployee.employeeName,
             Date: parts[1],
             Perdiem: Number(supp.perdiem || 0),
-            Advance: Number(supp.advance || 0),
-            JobBonus: Number(supp.jobBonus || 0),
+            Advance: Number(supp.confineSpace || 0),
+            JobBonus: Number(supp.incentive || 0),
             ConfineSpace: Number(supp.confineSpace || 0),
             Incentive: Number(supp.incentive || 0),
             Remark: supp.remarkOverride || ''
@@ -1151,8 +1151,8 @@ export default function IndividualReport({
       const supp = supplements[row.suppKey] || supplements[`${employeeCodeInput}_${row.dStr}`];
       if (supp) {
         perdiemSum += Number(supp.perdiem || 0);
-        advanceSum += Number(supp.advance || 0);
-        jobBonusSum += Number(supp.jobBonus || 0);
+        advanceSum += Number(supp.confineSpace || 0);
+        jobBonusSum += Number(supp.incentive || 0);
       }
     });
 
@@ -1381,8 +1381,8 @@ export default function IndividualReport({
         const supp = supplements[rowKey] || supplements[`${emp.id}_${dStr}`];
         if (supp) {
           perdiemSum += Number(supp.perdiem || 0);
-          advanceSum += Number(supp.advance || 0);
-          jobBonusSum += Number(supp.jobBonus || 0);
+          advanceSum += Number(supp.confineSpace || 0);
+          jobBonusSum += Number(supp.incentive || 0);
         }
       } else {
         dayDrafts.forEach(draft => {
@@ -1390,8 +1390,8 @@ export default function IndividualReport({
           const supp = supplements[rowKey] || supplements[`${emp.id}_${dStr}`];
           if (supp) {
             perdiemSum += Number(supp.perdiem || 0);
-            advanceSum += Number(supp.advance || 0);
-            jobBonusSum += Number(supp.jobBonus || 0);
+            advanceSum += Number(supp.confineSpace || 0);
+            jobBonusSum += Number(supp.incentive || 0);
           }
         });
       }
@@ -1463,7 +1463,7 @@ export default function IndividualReport({
 
     const rows = tableRows.map(row => {
       const { draft, suppKey, dStr } = row;
-      const supp = supplements[suppKey] || supplements[`${employeeCodeInput}_${dStr}`] || { perdiem: 0, advance: 0, jobBonus: 0, remarkOverride: '' };
+      const supp = supplements[suppKey] || supplements[`${employeeCodeInput}_${dStr}`] || { perdiem: 0, advance: 0, jobBonus: 0, confineSpace: 0, incentive: 0, remarkOverride: '' };
       
       const dayName = new Date(dStr).toLocaleDateString('en-US', { weekday: 'long' });
       const dayNum = formatThaiDate(dStr);
@@ -1498,8 +1498,8 @@ export default function IndividualReport({
         itemOt30,
         otValueVal.toFixed(2),
         supp.perdiem || 0,
-        supp.advance || 0,
-        supp.jobBonus || 0,
+        supp.confineSpace || 0,
+        supp.incentive || 0,
         `"${remarkText}"`
       ];
     });
@@ -2521,24 +2521,24 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
                           />
                         </td>
 
-                        {/* Advance Payments Input */}
+                        {/* Advance Payments Input (ConfineSpace) */}
                         <td className="py-0.5 px-0.5">
                           <input
                             type="number"
                             placeholder="0"
-                            value={supp.advance || ''}
-                            onChange={(e) => handleSupplementChange(suppKey, 'advance', parseFloat(e.target.value) || 0)}
+                            value={supp.confineSpace || ''}
+                            onChange={(e) => handleSupplementChange(suppKey, 'confineSpace', parseFloat(e.target.value) || 0)}
                             className="w-full text-right py-1 px-1 bg-transparent border-0 border-b border-transparent hover:border-slate-300 focus:border-[#D4AF37] focus:outline-hidden font-mono font-bold text-slate-800 text-[11px] print:border-none print:p-0"
                           />
                         </td>
 
-                        {/* Job Bonus Input */}
+                        {/* Job Bonus Input (Incentive) */}
                         <td className="py-0.5 px-0.5">
                           <input
                             type="number"
                             placeholder="0"
-                            value={supp.jobBonus || ''}
-                            onChange={(e) => handleSupplementChange(suppKey, 'jobBonus', parseFloat(e.target.value) || 0)}
+                            value={supp.incentive || ''}
+                            onChange={(e) => handleSupplementChange(suppKey, 'incentive', parseFloat(e.target.value) || 0)}
                             className="w-full text-right py-1 px-1 bg-transparent border-0 border-b border-transparent hover:border-slate-300 focus:border-[#D4AF37] focus:outline-hidden font-mono font-bold text-slate-800 text-[11px] print:border-none print:p-0"
                           />
                         </td>
@@ -4159,7 +4159,7 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
                   <tbody className="divide-y divide-slate-300">
                     {getEmpTableRows(emp.employeeName, empId).map((rowItem) => {
                       const { draft, rowId, dStr, suppKey, isMulti } = rowItem;
-                      const supp = supplements[suppKey] || supplements[`${empId}_${dStr}`] || { perdiem: 0, advance: 0, jobBonus: 0, remarkOverride: '' };
+                      const supp = supplements[suppKey] || supplements[`${empId}_${dStr}`] || { perdiem: 0, advance: 0, jobBonus: 0, confineSpace: 0, incentive: 0, remarkOverride: '' };
 
                       const dateObj = new Date(dStr);
                       const dayNum = dateObj.getDate();
@@ -4249,10 +4249,10 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
                             {supp.perdiem > 0 ? supp.perdiem.toLocaleString() : '—'}
                           </td>
                           <td className="py-0.5 px-0.2 text-right font-mono text-[7.5px] pr-0.5">
-                            {supp.advance > 0 ? supp.advance.toLocaleString() : '—'}
+                            {supp.confineSpace > 0 ? supp.confineSpace.toLocaleString() : '—'}
                           </td>
                           <td className="py-0.5 px-0.2 text-right font-mono font-bold text-slate-800 text-[7.5px] pr-0.5">
-                            {supp.jobBonus > 0 ? supp.jobBonus.toLocaleString() : '—'}
+                            {supp.incentive > 0 ? supp.incentive.toLocaleString() : '—'}
                           </td>
                           <td className="py-0.5 px-0.5 text-left text-[7.5px] truncate italic font-medium text-slate-600">
                             {finalRemark || '—'}
