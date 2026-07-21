@@ -878,7 +878,7 @@ export default function App() {
         isDark ? 'bg-[#0D0D0D] border-white/10 text-gray-500' : 'bg-slate-100 border-slate-200 text-slate-500'
       }`}>
         <div className="max-w-full mx-auto px-4 md:px-8 xl:px-12 space-y-1">
-          <p>© 2026 Thai Timesheet & OT Calculation Engine with Supabase. All Rights Reserved.</p>
+          <p>© 2026 Thai Timesheet & OT Calculation Engine with Supabase. All Rights Reserved. (Version V6.2)</p>
           <p className="text-[10px] text-gray-400">
             ระบบคำนวณอัตราทำงานและวันจ่ายเงินเดือนแบบ Real-time เชื่อมโยงฐานข้อมูลคลาวด์ สอดคล้องตามเกณฑ์มาตรฐานความปลอดภัยสูง
           </p>
