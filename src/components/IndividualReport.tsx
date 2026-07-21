@@ -1096,14 +1096,14 @@ export default function IndividualReport({
           },
           rowId: `draft-${dStr}`,
           dStr,
-          suppKey: `${employeeCodeInput}_${dStr}_draft-${dStr}`,
+          suppKey: `${employeeCodeInput}_${dStr}`,
           isMulti: false
         });
       } else {
         const isMulti = dayDrafts.length > 1;
         dayDrafts.forEach((draft, idx) => {
           const rowId = draft.id ? (isMulti ? `${draft.id}_${idx}` : draft.id) : `${dStr}_${idx}`;
-          const suppKey = `${employeeCodeInput}_${dStr}_${rowId}`;
+          const suppKey = isMulti ? `${employeeCodeInput}_${dStr}_${rowId}` : `${employeeCodeInput}_${dStr}`;
           list.push({
             draft,
             rowId,
@@ -1148,7 +1148,10 @@ export default function IndividualReport({
         ot30Sum += draft.ot30Hours || 0;
       }
 
-      const supp = supplements[row.suppKey] || supplements[`${employeeCodeInput}_${row.dStr}`];
+      const supp = supplements[row.suppKey] || 
+                   supplements[`${employeeCodeInput}_${row.dStr}`] || 
+                   supplements[`${employeeCodeInput}_${row.dStr}_draft-${row.dStr}`] || 
+                   supplements[`${employeeCodeInput}_${row.dStr}_${row.rowId}`];
       if (supp) {
         perdiemSum += Number(supp.perdiem || 0);
         advanceSum += Number(supp.confineSpace || 0);
@@ -1162,7 +1165,10 @@ export default function IndividualReport({
       const hasWorkOnDay = dayRows.some(r => r.draft && r.draft.timeIn && r.draft.timeOut);
       
       const hasLeaveRemark = dayRows.some(r => {
-        const suppObj = supplements[r.suppKey] || supplements[`${employeeCodeInput}_${r.dStr}`];
+        const suppObj = supplements[r.suppKey] || 
+                        supplements[`${employeeCodeInput}_${r.dStr}`] || 
+                        supplements[`${employeeCodeInput}_${r.dStr}_draft-${r.dStr}`] || 
+                        supplements[`${employeeCodeInput}_${r.dStr}_${r.rowId}`];
         const lowerRemark = ((r.draft?.remark || '') + ' ' + (suppObj?.remarkOverride || '')).toLowerCase();
         return lowerRemark.includes('leave') || lowerRemark.includes('ลา') || lowerRemark.includes('annual');
       });
@@ -1215,7 +1221,11 @@ export default function IndividualReport({
 
     tableRows.forEach(row => {
       const { draft, suppKey } = row;
-      const supp = supplements[suppKey] || supplements[`${employeeCodeInput}_${row.dStr}`] || { perdiem: undefined, advance: 0, jobBonus: 0, confineSpace: 0, incentive: 0, remarkOverride: '' };
+      const supp = supplements[suppKey] || 
+                   supplements[`${employeeCodeInput}_${row.dStr}`] || 
+                   supplements[`${employeeCodeInput}_${row.dStr}_draft-${row.dStr}`] || 
+                   supplements[`${employeeCodeInput}_${row.dStr}_${row.rowId}`] || 
+                   { perdiem: undefined, advance: 0, jobBonus: 0, confineSpace: 0, incentive: 0, remarkOverride: '' };
 
       const normHrs = draft.normalHours || 0;
       const itemOt15 = draft.ot15Hours || 0;
@@ -1269,7 +1279,7 @@ export default function IndividualReport({
       grandPerdiem,
       grandWelfareTotal
     };
-  }, [tableRows, supplements, hourlyRate, activeEmployee, settings]);
+  }, [tableRows, supplements, hourlyRate, activeEmployee, settings, employeeCodeInput]);
 
   // Helper to resolve timesheet entries for any employee
   const getEmployeeEntryForDate = (empName: string, dStr: string) => {
@@ -1377,17 +1387,24 @@ export default function IndividualReport({
 
       // Sum supplements for all drafts of this day or fallback to the general day supplement key
       if (dayDrafts.length === 0) {
-        const rowKey = `${emp.id}_${dStr}_draft-${dStr}`;
-        const supp = supplements[rowKey] || supplements[`${emp.id}_${dStr}`];
+        const rowKey = `${emp.id}_${dStr}`;
+        const supp = supplements[rowKey] || 
+                     supplements[`${emp.id}_${dStr}_draft-${dStr}`] || 
+                     supplements[`${emp.id}_${dStr}`];
         if (supp) {
           perdiemSum += Number(supp.perdiem || 0);
           advanceSum += Number(supp.confineSpace || 0);
           jobBonusSum += Number(supp.incentive || 0);
         }
       } else {
-        dayDrafts.forEach(draft => {
-          const rowKey = draft.id ? `${emp.id}_${dStr}_${draft.id}` : `${emp.id}_${dStr}`;
-          const supp = supplements[rowKey] || supplements[`${emp.id}_${dStr}`];
+        const isMulti = dayDrafts.length > 1;
+        dayDrafts.forEach((draft, idx) => {
+          const rowId = draft.id ? (isMulti ? `${draft.id}_${idx}` : draft.id) : `${dStr}_${idx}`;
+          const rowKey = isMulti ? `${emp.id}_${dStr}_${rowId}` : `${emp.id}_${dStr}`;
+          const supp = supplements[rowKey] || 
+                       supplements[`${emp.id}_${dStr}_${rowId}`] || 
+                       supplements[`${emp.id}_${dStr}_draft-${dStr}`] || 
+                       supplements[`${emp.id}_${dStr}`];
           if (supp) {
             perdiemSum += Number(supp.perdiem || 0);
             advanceSum += Number(supp.confineSpace || 0);
@@ -1398,8 +1415,13 @@ export default function IndividualReport({
 
       // Check leave on first entry or override
       const firstDraft = dayDrafts[0];
-      const rowKey = firstDraft && firstDraft.id ? `${emp.id}_${dStr}_${firstDraft.id}` : `${emp.id}_${dStr}`;
-      const supp = supplements[rowKey] || supplements[`${emp.id}_${dStr}`];
+      const isMulti = dayDrafts.length > 1;
+      const rowId = firstDraft && firstDraft.id ? (isMulti ? `${firstDraft.id}_0` : firstDraft.id) : `draft-${dStr}`;
+      const rowKey = isMulti ? `${emp.id}_${dStr}_${rowId}` : `${emp.id}_${dStr}`;
+      const supp = supplements[rowKey] || 
+                   supplements[`${emp.id}_${dStr}_${rowId}`] || 
+                   supplements[`${emp.id}_${dStr}_draft-${dStr}`] || 
+                   supplements[`${emp.id}_${dStr}`];
       const lowerRemark = (((firstDraft?.remark || '') + ' ' + (supp?.remarkOverride || '')).toLowerCase());
       if (lowerRemark.includes('leave') || lowerRemark.includes('ลา') || lowerRemark.includes('annual')) {
         leavesCount++;
@@ -1463,7 +1485,11 @@ export default function IndividualReport({
 
     const rows = tableRows.map(row => {
       const { draft, suppKey, dStr } = row;
-      const supp = supplements[suppKey] || supplements[`${employeeCodeInput}_${dStr}`] || { perdiem: 0, advance: 0, jobBonus: 0, confineSpace: 0, incentive: 0, remarkOverride: '' };
+      const supp = supplements[suppKey] || 
+                   supplements[`${employeeCodeInput}_${dStr}`] || 
+                   supplements[`${employeeCodeInput}_${dStr}_draft-${dStr}`] || 
+                   supplements[`${employeeCodeInput}_${dStr}_${row.rowId}`] || 
+                   { perdiem: 0, advance: 0, jobBonus: 0, confineSpace: 0, incentive: 0, remarkOverride: '' };
       
       const dayName = new Date(dStr).toLocaleDateString('en-US', { weekday: 'long' });
       const dayNum = formatThaiDate(dStr);
@@ -1543,7 +1569,11 @@ export default function IndividualReport({
 
     const rows = tableRows.map(row => {
       const { draft, suppKey, dStr } = row;
-      const supp = supplements[suppKey] || supplements[`${employeeCodeInput}_${dStr}`] || { perdiem: 0, advance: 0, jobBonus: 0, confineSpace: 0, incentive: 0, remarkOverride: '' };
+      const supp = supplements[suppKey] || 
+                   supplements[`${employeeCodeInput}_${dStr}`] || 
+                   supplements[`${employeeCodeInput}_${dStr}_draft-${dStr}`] || 
+                   supplements[`${employeeCodeInput}_${dStr}_${row.rowId}`] || 
+                   { perdiem: 0, advance: 0, jobBonus: 0, confineSpace: 0, incentive: 0, remarkOverride: '' };
       
       const dayName = new Date(dStr).toLocaleDateString('en-US', { weekday: 'long' });
       const dayNum = formatThaiDate(dStr);
@@ -4010,14 +4040,14 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
                   },
                   rowId: `draft-${dStr}`,
                   dStr,
-                  suppKey: `${empIdVal}_${dStr}_draft-${dStr}`,
+                  suppKey: `${empIdVal}_${dStr}`,
                   isMulti: false
                 });
               } else {
                 const isMulti = dayDrafts.length > 1;
                 dayDrafts.forEach((draft, idx) => {
                   const rowId = draft.id ? (isMulti ? `${draft.id}_${idx}` : draft.id) : `${dStr}_${idx}`;
-                  const suppKey = `${empIdVal}_${dStr}_${rowId}`;
+                  const suppKey = isMulti ? `${empIdVal}_${dStr}_${rowId}` : `${empIdVal}_${dStr}`;
                   list.push({
                     draft,
                     rowId,
