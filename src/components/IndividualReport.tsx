@@ -789,9 +789,21 @@ export default function IndividualReport({
     const key = suppKeyOrDate.includes('_') ? suppKeyOrDate : `${employeeCodeInput}_${suppKeyOrDate}`;
     setSupplements(prev => {
       const existing = prev[key] || { perdiem: 0, advance: 0, jobBonus: 0, confineSpace: 0, incentive: 0, remarkOverride: '' };
+      const updated = { ...existing, [field]: value };
+      
+      if (field === 'confineSpace') {
+        updated.advance = Number(value || 0);
+      } else if (field === 'advance') {
+        updated.confineSpace = Number(value || 0);
+      } else if (field === 'incentive') {
+        updated.jobBonus = Number(value || 0);
+      } else if (field === 'jobBonus') {
+        updated.incentive = Number(value || 0);
+      }
+      
       return {
         ...prev,
-        [key]: { ...existing, [field]: value }
+        [key]: updated
       };
     });
   };
@@ -937,10 +949,8 @@ export default function IndividualReport({
               EmployeeName: activeEmployee.employeeName,
               Date: parts[1],
               Perdiem: Number(supp.perdiem || 0),
-              Advance: Number(supp.confineSpace || 0),
-              JobBonus: Number(supp.incentive || 0),
-              ConfineSpace: Number(supp.confineSpace || 0),
-              Incentive: Number(supp.incentive || 0),
+              Advance: Number(supp.confineSpace || supp.advance || 0),
+              JobBonus: Number(supp.incentive || supp.jobBonus || 0),
               Remark: supp.remarkOverride || ''
             });
           }
@@ -1012,10 +1022,8 @@ export default function IndividualReport({
             EmployeeName: activeEmployee.employeeName,
             Date: parts[1],
             Perdiem: Number(supp.perdiem || 0),
-            Advance: Number(supp.confineSpace || 0),
-            JobBonus: Number(supp.incentive || 0),
-            ConfineSpace: Number(supp.confineSpace || 0),
-            Incentive: Number(supp.incentive || 0),
+            Advance: Number(supp.confineSpace || supp.advance || 0),
+            JobBonus: Number(supp.incentive || supp.jobBonus || 0),
             Remark: supp.remarkOverride || ''
           });
         }
@@ -1154,8 +1162,8 @@ export default function IndividualReport({
                    supplements[`${employeeCodeInput}_${row.dStr}_${row.rowId}`];
       if (supp) {
         perdiemSum += Number(supp.perdiem || 0);
-        advanceSum += Number(supp.confineSpace || 0);
-        jobBonusSum += Number(supp.incentive || 0);
+        advanceSum += Number(supp.confineSpace || supp.advance || 0);
+        jobBonusSum += Number(supp.incentive || supp.jobBonus || 0);
       }
     });
 
@@ -1255,8 +1263,8 @@ export default function IndividualReport({
       const otPay = isOffshore ? 0 : (itemOt15 * 1.5 + itemOt20 * ot20RateActual + itemOt30 * 3.0) * localHourlyRate;
       const combinedWageOt = normalPay + otPay;
 
-      const confineVal = Number(supp.confineSpace || 0);
-      const incentiveVal = Number(supp.incentive || 0);
+      const confineVal = Number(supp.confineSpace || supp.advance || 0);
+      const incentiveVal = Number(supp.incentive || supp.jobBonus || 0);
       
       const perdiemVal = Number(supp.perdiem || 0);
       const welfareTotal = combinedWageOt + confineVal + incentiveVal + perdiemVal;
@@ -2924,7 +2932,16 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
                 <tbody className="divide-y divide-slate-200">
                   {tableRows.map((rowItem) => {
                     const { draft, rowId, dStr, suppKey, isMulti } = rowItem;
-                    const supp = supplements[suppKey] || supplements[`${employeeCodeInput}_${dStr}`] || { perdiem: 0, advance: 0, jobBonus: 0, confineSpace: 0, incentive: 0, remarkOverride: '' };
+                    const rawSupp = supplements[suppKey] || 
+                                    supplements[`${employeeCodeInput}_${dStr}`] || 
+                                    supplements[`${employeeCodeInput}_${dStr}_draft-${dStr}`] || 
+                                    supplements[`${employeeCodeInput}_${dStr}_${rowId}`] || 
+                                    { perdiem: 0, advance: 0, jobBonus: 0, confineSpace: 0, incentive: 0, remarkOverride: '' };
+                    const supp = {
+                      ...rawSupp,
+                      confineSpace: rawSupp.confineSpace || rawSupp.advance || 0,
+                      incentive: rawSupp.incentive || rawSupp.jobBonus || 0
+                    };
 
                     const dateObj = new Date(dStr);
                     const dayNum = dateObj.getDate();

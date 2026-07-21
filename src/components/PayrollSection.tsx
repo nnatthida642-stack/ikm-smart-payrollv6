@@ -107,8 +107,8 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                 perdiem: parseFloat(item.Perdiem || 0),
                 advance: parseFloat(item.Advance || 0),
                 jobBonus: parseFloat(item.JobBonus || 0),
-                confineSpace: parseFloat(item.ConfineSpace || 0),
-                incentive: parseFloat(item.Incentive || 0),
+                confineSpace: parseFloat(item.ConfineSpace || item.Advance || 0),
+                incentive: parseFloat(item.Incentive || item.JobBonus || 0),
                 remarkOverride: item.Remark || ''
               };
             });
@@ -185,12 +185,20 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
     const key = entryId ? `${empId}_${date}_${entryId}` : `${empId}_${date}`;
     setSupplements(prev => {
       const existing = prev[key] || prev[`${empId}_${date}`] || { perdiem: 0, advance: 0, jobBonus: 0, confineSpace: 0, incentive: 0, remarkOverride: '' };
+      const updated = {
+        ...existing,
+        [field]: value
+      };
+      
+      if (field === 'confineSpace') {
+        updated.advance = Number(value || 0);
+      } else if (field === 'incentive') {
+        updated.jobBonus = Number(value || 0);
+      }
+      
       return {
         ...prev,
-        [key]: {
-          ...existing,
-          [field]: value
-        }
+        [key]: updated
       };
     });
   };
@@ -768,10 +776,8 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
             EmployeeName: emp.employeeName,
             Date: ent.date,
             Perdiem: Number(supp.perdiem || 0),
-            Advance: Number(supp.advance || 0),
-            JobBonus: Number(supp.jobBonus || 0),
-            ConfineSpace: Number(supp.confineSpace || 0),
-            Incentive: Number(supp.incentive || 0),
+            Advance: Number(supp.confineSpace || supp.advance || 0),
+            JobBonus: Number(supp.incentive || supp.jobBonus || 0),
             Remark: supp.remarkOverride || ''
           });
         }
@@ -810,10 +816,8 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
             EmployeeName: d.employeeName,
             Date: d.date,
             Perdiem: Number(supp.perdiem || 0),
-            Advance: Number(supp.advance || 0),
-            JobBonus: Number(supp.jobBonus || 0),
-            ConfineSpace: Number(supp.confineSpace || 0),
-            Incentive: Number(supp.incentive || 0),
+            Advance: Number(supp.confineSpace || supp.advance || 0),
+            JobBonus: Number(supp.incentive || supp.jobBonus || 0),
             Remark: supp.remarkOverride || ''
           });
         }
