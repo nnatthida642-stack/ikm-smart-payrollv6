@@ -12,12 +12,12 @@ export const initialEmployees: Employee[] = [
   { id: 'EMP009', employeeName: 'ARUNNUCHA WICHANARONG', staffSalary: 33000, position: 'Officer', status: 'active', bankName: '', bankAccount: '', studentLoan: 0, workScheduleType: 'staff' },
   { id: 'EMP010', employeeName: 'PONGSAKORN KANGTHIN', staffSalary: 33000, position: 'Technician', status: 'active', bankName: '', bankAccount: '', studentLoan: 0, workScheduleType: 'staff' },
   { id: 'EMP011', employeeName: 'PITAK BANJONGPARU', staffSalary: 34500, position: 'Technician', status: 'active', bankName: '', bankAccount: '', studentLoan: 0, workScheduleType: 'staff' },
-  { id: 'EMP012', employeeName: 'NOPPARAT TOSA-ARD', staffSalary: 45000, position: 'Senior Technician', status: 'active', bankName: '', bankAccount: '', studentLoan: 0, workScheduleType: 'staff' },
+  { id: 'EMP012', employeeName: 'ANAN PATTAI', staffSalary: 35000, position: 'Technician', status: 'active', bankName: '', bankAccount: '', studentLoan: 0, workScheduleType: 'monthly_worker' },
   { id: 'EMP013', employeeName: 'THIHA SOE', staffSalary: 42000, position: 'Technician', status: 'active', bankName: '', bankAccount: '', studentLoan: 0, workScheduleType: 'staff' },
   { id: 'EMP014', employeeName: 'TANAT KUSUWANNAKUL', officeSalary: 40000, position: 'Staff', status: 'active', bankName: '', bankAccount: '', studentLoan: 0, workScheduleType: 'staff' },
   { id: 'EMP015', employeeName: 'SUREERAT MAKARUN', officeSalary: 40000, position: 'Staff', status: 'active', bankName: '', bankAccount: '', studentLoan: 0, workScheduleType: 'staff' },
   { id: 'EMP016', employeeName: 'PASIST KRITPAKORNSHAI', staffSalary: 35000, position: 'Technician', status: 'active', bankName: '', bankAccount: '', studentLoan: 0, workScheduleType: 'staff' },
-  { id: 'EMP017', employeeName: 'WANAS MASAYOR', staffSalary: 35000, position: 'Technician', status: 'active', bankName: '', bankAccount: '', studentLoan: 0, workScheduleType: 'staff' },
+  { id: 'EMP017', employeeName: 'THANACHAK SALAKTHONG', staffSalary: 35000, position: 'Offshore Technician', status: 'active', bankName: '', bankAccount: '', studentLoan: 0, workScheduleType: 'monthly_worker' },
   { id: 'EMP018', employeeName: 'JIRAPONG PANWAT', staffSalary: 28000, position: 'Junior Technician', status: 'active', bankName: '', bankAccount: '', studentLoan: 0, workScheduleType: 'staff' },
   { id: 'EMP019', employeeName: 'TEPDECHA DEEKAEW', officeSalary: 45000, position: 'Engineer', status: 'active', bankName: '', bankAccount: '', studentLoan: 0, workScheduleType: 'staff' },
   { id: 'EMP020', employeeName: 'ADUL JANSON', transportationRate: 250, workshopRate: 700, onsiteRate: 750, position: 'Daily Worker', status: 'active', bankName: '', bankAccount: '', studentLoan: 0, workScheduleType: 'daily_worker' },
@@ -120,5 +120,8 @@ export const initialEmployees: Employee[] = [
   { id: 'EMP117', employeeName: 'SUPHACHAI PHORMMA', transportationRate: 250, workshopRate: 450, onsiteRate: 450, position: 'Daily Worker', status: 'active', bankName: '', bankAccount: '', studentLoan: 0, workScheduleType: 'daily_worker' },
   { id: 'EMP118', employeeName: 'SATID CHOEDSUK', transportationRate: 250, workshopRate: 500, onsiteRate: 500, position: 'Daily Worker', status: 'active', bankName: '', bankAccount: '', studentLoan: 0, workScheduleType: 'daily_worker' },
   { id: 'EMP119', employeeName: 'PAKDEE ATTAWETKUL', staffSalary: 15000, position: 'Officer', status: 'active', bankName: '', bankAccount: '', studentLoan: 0, workScheduleType: 'staff' },
-  { id: 'EMP120', employeeName: 'PATCHAREE HOMSUK', staffSalary: 15000, position: 'Officer', status: 'active', bankName: '', bankAccount: '', studentLoan: 0, workScheduleType: 'staff' }
+  { id: 'EMP120', employeeName: 'PATCHAREE HOMSUK', staffSalary: 15000, position: 'Officer', status: 'active', bankName: '', bankAccount: '', studentLoan: 0, workScheduleType: 'staff' },
+  { id: 'EMP121', employeeName: 'NOPPARAT TOSA-ARD', staffSalary: 45000, position: 'Senior Technician', status: 'active', bankName: '', bankAccount: '', studentLoan: 0, workScheduleType: 'staff' },
+  { id: 'EMP122', employeeName: 'WANAS MASAYOR', staffSalary: 35000, position: 'Technician', status: 'active', bankName: '', bankAccount: '', studentLoan: 0, workScheduleType: 'staff' },
+  { id: 'EMP144', employeeName: 'SAENGTHIWA SUWANNATRAI', staffSalary: 35000, position: 'Safety', status: 'active', bankName: '', bankAccount: '', studentLoan: 0, workScheduleType: 'monthly_worker' }
 ];

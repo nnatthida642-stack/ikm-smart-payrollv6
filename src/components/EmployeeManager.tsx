@@ -503,7 +503,8 @@ export default function EmployeeManager({
                 className={`w-full text-xs rounded-sm p-2 focus:outline-hidden border ${selectBgClass}`}
               >
                 <option value="daily_worker">รายวัน (Daily)</option>
-                <option value="staff">รายเดือน (Monthly Staff)</option>
+                <option value="monthly_worker">รายเดือนปกติ (จันทร์-เสาร์ 8.00-17.00)</option>
+                <option value="staff">รายเดือน Staff (จันทร์-ศุกร์ + เสาร์ 4ชม.)</option>
               </select>
             </div>
 
@@ -720,15 +721,18 @@ export default function EmployeeManager({
                           className={`border rounded px-1 py-0.5 text-xs w-full ${selectBgClass}`}
                         >
                           <option value="daily_worker">รายวัน (Daily)</option>
-                          <option value="staff">รายเดือน (Staff)</option>
+                          <option value="monthly_worker">รายเดือนปกติ (จันทร์-เสาร์ 8-17)</option>
+                          <option value="staff">รายเดือน Staff (ออฟฟิศ)</option>
                         </select>
                       ) : (
                         <span className={`px-2 py-0.5 rounded-xs text-[9px] font-bold border inline-block ${
                           emp.workScheduleType === 'staff' 
-                            ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/30' 
+                            ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-900/30' 
+                            : emp.workScheduleType === 'monthly_worker'
+                            ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/30'
                             : 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-305 dark:border-indigo-900/30'
                         }`}>
-                          {emp.workScheduleType === 'staff' ? 'รายเดือน' : 'รายวัน'}
+                          {emp.workScheduleType === 'staff' ? 'รายเดือน (Staff)' : emp.workScheduleType === 'monthly_worker' ? 'รายเดือนปกติ' : 'รายวัน'}
                         </span>
                       )}
                     </td>
@@ -1079,9 +1083,9 @@ export default function EmployeeManager({
                             <td className="py-1.5 px-2 text-gray-400">{emp.position}</td>
                             <td className="py-1.5 px-2">
                               <span className={`px-1 py-0.5 rounded text-[8.5px] font-bold text-white border ${
-                                emp.workScheduleType === 'staff' ? 'bg-blue-600/80' : 'bg-indigo-600/80'
+                                emp.workScheduleType === 'staff' ? 'bg-purple-600/80' : emp.workScheduleType === 'monthly_worker' ? 'bg-blue-600/80' : 'bg-indigo-600/80'
                               }`}>
-                                {emp.workScheduleType === 'staff' ? 'รายเดือน' : 'รายวัน'}
+                                {emp.workScheduleType === 'staff' ? 'รายเดือน (Staff)' : emp.workScheduleType === 'monthly_worker' ? 'รายเดือนปกติ' : 'รายวัน'}
                               </span>
                             </td>
                             <td className="py-1.5 px-2 text-right font-mono text-gray-300">

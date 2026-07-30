@@ -261,7 +261,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
       let ot30Pay = 0;
       let hourlyRate = 0;
 
-      const isStaff = emp.workScheduleType === 'staff';
+      const isStaff = emp.workScheduleType === 'staff' || emp.workScheduleType === 'monthly_worker';
 
       if (isStaff) {
         // Staff has fixed base salary
@@ -424,7 +424,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
         id: emp.id,
         name: emp.employeeName,
         position: emp.position || 'พนักงาน',
-        scheduleType: emp.workScheduleType === 'staff' ? 'รายเดือน' : 'รายวัน',
+        scheduleType: (emp.workScheduleType === 'staff' || emp.workScheduleType === 'monthly_worker') ? 'รายเดือน' : 'รายวัน',
         daysWorked,
         totalHours: Number(totalHours.toFixed(2)),
         normalHours: Number(normalHoursCount.toFixed(2)),
@@ -544,7 +544,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
         baseRate = emp.wfhRate || 0;
       }
 
-      const isStaff = emp.workScheduleType === 'staff';
+      const isStaff = emp.workScheduleType === 'staff' || emp.workScheduleType === 'monthly_worker';
       const ot20RateActual = isStaff ? 1.0 : settings.ot20Rate;
 
       // Compute standard hourly rate
@@ -725,7 +725,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
         else if (proj.includes('offshore')) baseRate = emp.offshoreRate || 0;
         else if (proj.includes('wfh')) baseRate = emp.wfhRate || 0;
 
-        const isStaff = emp.workScheduleType === 'staff';
+        const isStaff = emp.workScheduleType === 'staff' || emp.workScheduleType === 'monthly_worker';
         const ot20RateActual = isStaff ? 1.0 : settings.ot20Rate;
 
         const hourlyBase = Number((baseRate / settings.defaultWorkHours).toFixed(2));

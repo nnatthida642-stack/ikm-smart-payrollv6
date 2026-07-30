@@ -13,19 +13,26 @@ export function findEmployeeMatch(inputName: string, employees: Employee[]): Emp
   });
   if (idMatch) return idMatch;
 
-  // 2. Try checking if ID is embedded in the input (e.g., "EMP032 ANAN KHOTSOMBAT" or "EMP032 - ANAN")
-  const idEmbeddedMatch = employees.find(emp => {
-    const cleanId = emp.id.trim().toUpperCase();
-    return cleanInput.includes(cleanId);
-  });
-  if (idEmbeddedMatch) return idEmbeddedMatch;
-
-  // 3. Exact Name Match (Normalized spaces and case)
+  // 2. Exact Name Match (Normalized spaces and case)
   const exactNameMatch = employees.find(emp => {
     const cleanTarget = emp.employeeName.trim().toUpperCase().replace(/\s+/g, ' ');
     return cleanTarget === cleanInput;
   });
   if (exactNameMatch) return exactNameMatch;
+
+  // 3. Try checking if full Employee Name is embedded in cleanInput (e.g., "EMP012 ANAN PATTAI" -> matches "ANAN PATTAI")
+  const nameEmbeddedMatch = employees.find(emp => {
+    const cleanTarget = emp.employeeName.trim().toUpperCase().replace(/\s+/g, ' ');
+    return cleanTarget.length >= 3 && cleanInput.includes(cleanTarget);
+  });
+  if (nameEmbeddedMatch) return nameEmbeddedMatch;
+
+  // 4. Try checking if ID is embedded in the input (e.g., "EMP032 ANAN KHOTSOMBAT" or "EMP032 - ANAN")
+  const idEmbeddedMatch = employees.find(emp => {
+    const cleanId = emp.id.trim().toUpperCase();
+    return cleanInput.includes(cleanId);
+  });
+  if (idEmbeddedMatch) return idEmbeddedMatch;
 
   // 4. Strict Alphanumeric Exact Match (checking every letter of first & last name)
   // This matches "THAWATCHAI KHAN-KEAW" with "THAWATCHAI KHAN KEAW" or "Thawatchai Khan-keaw" perfectly
@@ -222,9 +229,10 @@ export function calculateEntryOT(
   let ot20Hours = 0;
   let ot30Hours = 0;
 
-  const isDailyWorker =
+  const isMonSatNormalWorker =
     workScheduleType === 'daily_worker' ||
-    (position && position.toLowerCase().includes('daily'));
+    workScheduleType === 'monthly_worker' ||
+    (position && (position.toLowerCase().includes('daily') || position.toLowerCase().includes('worker')));
 
   // 2. Holiday or Sunday calculation rules (bypassed if offshore)
   if (isHolidayDay && !isOffshore) {
@@ -261,8 +269,8 @@ export function calculateEntryOT(
   } 
   // 3. Saturday calculation rules (bypassed if offshore)
   else if (isSaturday && !isOffshore) {
-    if (isDailyWorker) {
-      // "พนักงานที่มีตำแหน่ง Daily Worker ปรับวันทำจันทร์ - เสาร์ เป็นวันทำงานปกติ"
+    if (isMonSatNormalWorker) {
+      // "พนักงานที่มีตำแหน่ง Daily Worker หรือ Monthly Worker (รายเดือนปกติ) ปรับวันทำจันทร์ - เสาร์ เป็นวันทำงานปกติ"
       // Normal hours are up to 8.0, and after-hours are OT 1.5.
       const mainWorkHours = actualWorkHours;
       normalHours = Math.min(8.0, mainWorkHours);
@@ -384,8 +392,11 @@ export function rebalanceTimesheetEntries(
     if (isPubHoliday || isSunday || hasCustomerHoliday) {
       maxNormalHoursAllowed = 0.0;
     } else if (isSaturday) {
-      const isDailyWorker = workType === 'daily_worker' || (pos && pos.toLowerCase().includes('daily'));
-      maxNormalHoursAllowed = isDailyWorker ? 8.0 : 4.0;
+      const isMonSatNormalWorker =
+        workType === 'daily_worker' ||
+        workType === 'monthly_worker' ||
+        (pos && (pos.toLowerCase().includes('daily') || pos.toLowerCase().includes('worker')));
+      maxNormalHoursAllowed = isMonSatNormalWorker ? 8.0 : 4.0;
     }
 
     let usedNormalHours = 0.0;

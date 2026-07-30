@@ -196,7 +196,7 @@ export default function Dashboard({ entries, employees, holidays, isDark = true 
       let ot30Pay = 0;
       let hourlyRate = 0;
 
-      const isStaff = emp.workScheduleType === 'staff';
+      const isStaff = emp.workScheduleType === 'staff' || emp.workScheduleType === 'monthly_worker';
 
       if (isStaff) {
         const salary = emp.officeSalary || emp.staffSalary || 0;

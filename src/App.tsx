@@ -100,6 +100,54 @@ export default function App() {
             initialEmployees.forEach(emp => dbUpsertEmployee(emp));
           }
         }
+        // Ensure target employees (ANAN PATTAI, THANACHAK SALAKTHONG, SAENGTHIWA SUWANNATRAI) are monthly_worker
+        const targetMonthlyNames = ['ANAN PATTAI', 'THANACHAK SALAKTHONG', 'SAENGTHIWA SUWANNATRAI'];
+        const targetMonthlyIds = ['EMP012', 'EMP017', 'EMP144'];
+
+        activeEmployees = activeEmployees.map(emp => {
+          const upperName = emp.employeeName.trim().toUpperCase();
+          const upperId = emp.id.trim().toUpperCase();
+          if (
+            targetMonthlyNames.some(n => upperName.includes(n)) ||
+            targetMonthlyIds.includes(upperId)
+          ) {
+            let pos = emp.position;
+            if (upperName.includes('ANAN')) {
+              pos = 'Technician';
+            } else if (upperName.includes('THANACHAK')) {
+              pos = 'Offshore Technician';
+            } else if (upperName.includes('SAENGTHIWA')) {
+              pos = 'Safety';
+            }
+            const updatedEmp: Employee = {
+              ...emp,
+              id: upperName.includes('ANAN') ? 'EMP012' : upperName.includes('THANACHAK') ? 'EMP017' : upperName.includes('SAENGTHIWA') ? 'EMP144' : emp.id,
+              position: pos || 'Technician',
+              workScheduleType: 'monthly_worker'
+            };
+            dbUpsertEmployee(updatedEmp);
+            return updatedEmp;
+          }
+          return emp;
+        });
+
+        // Ensure EMP012, EMP017, EMP144 exist in list
+        if (!activeEmployees.some(e => e.id === 'EMP012' || e.employeeName.toUpperCase().includes('ANAN PATTAI'))) {
+          const emp: Employee = { id: 'EMP012', employeeName: 'ANAN PATTAI', position: 'Technician', staffSalary: 35000, status: 'active', bankName: '', bankAccount: '', studentLoan: 0, workScheduleType: 'monthly_worker' };
+          activeEmployees.push(emp);
+          dbUpsertEmployee(emp);
+        }
+        if (!activeEmployees.some(e => e.id === 'EMP017' || e.employeeName.toUpperCase().includes('THANACHAK'))) {
+          const emp: Employee = { id: 'EMP017', employeeName: 'THANACHAK SALAKTHONG', position: 'Offshore Technician', staffSalary: 35000, status: 'active', bankName: '', bankAccount: '', studentLoan: 0, workScheduleType: 'monthly_worker' };
+          activeEmployees.push(emp);
+          dbUpsertEmployee(emp);
+        }
+        if (!activeEmployees.some(e => e.id === 'EMP144' || e.employeeName.toUpperCase().includes('SAENGTHIWA'))) {
+          const emp: Employee = { id: 'EMP144', employeeName: 'SAENGTHIWA SUWANNATRAI', position: 'Safety', staffSalary: 35000, status: 'active', bankName: '', bankAccount: '', studentLoan: 0, workScheduleType: 'monthly_worker' };
+          activeEmployees.push(emp);
+          dbUpsertEmployee(emp);
+        }
+
         setEmployees(activeEmployees);
         localStorage.setItem('thai_ot_employees', JSON.stringify(activeEmployees));
 
@@ -878,7 +926,7 @@ export default function App() {
         isDark ? 'bg-[#0D0D0D] border-white/10 text-gray-500' : 'bg-slate-100 border-slate-200 text-slate-500'
       }`}>
         <div className="max-w-full mx-auto px-4 md:px-8 xl:px-12 space-y-1">
-          <p>© 2026 Thai Timesheet & OT Calculation Engine with Supabase. All Rights Reserved. (Version V6.2)</p>
+          <p>© 2026 Thai Timesheet & OT Calculation Engine with Supabase. All Rights Reserved. (Version V6.3)</p>
           <p className="text-[10px] text-gray-400">
             ระบบคำนวณอัตราทำงานและวันจ่ายเงินเดือนแบบ Real-time เชื่อมโยงฐานข้อมูลคลาวด์ สอดคล้องตามเกณฑ์มาตรฐานความปลอดภัยสูง
           </p>
