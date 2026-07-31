@@ -112,17 +112,20 @@ export default function App() {
             targetMonthlyIds.includes(upperId)
           ) {
             let pos = emp.position;
+            const isThanachak = upperName.includes('THANACHAK') || upperId === 'EMP017';
             if (upperName.includes('ANAN')) {
               pos = 'Technician';
-            } else if (upperName.includes('THANACHAK')) {
+            } else if (isThanachak) {
               pos = 'Offshore Technician';
             } else if (upperName.includes('SAENGTHIWA')) {
               pos = 'Safety';
             }
             const updatedEmp: Employee = {
               ...emp,
-              id: upperName.includes('ANAN') ? 'EMP012' : upperName.includes('THANACHAK') ? 'EMP017' : upperName.includes('SAENGTHIWA') ? 'EMP144' : emp.id,
+              id: upperName.includes('ANAN') ? 'EMP012' : isThanachak ? 'EMP017' : upperName.includes('SAENGTHIWA') ? 'EMP144' : emp.id,
               position: pos || 'Technician',
+              staffSalary: isThanachak ? 20000 : (emp.staffSalary || 35000),
+              officeSalary: isThanachak ? 20000 : (emp.officeSalary || 35000),
               workScheduleType: 'monthly_worker'
             };
             dbUpsertEmployee(updatedEmp);
@@ -138,7 +141,7 @@ export default function App() {
           dbUpsertEmployee(emp);
         }
         if (!activeEmployees.some(e => e.id === 'EMP017' || e.employeeName.toUpperCase().includes('THANACHAK'))) {
-          const emp: Employee = { id: 'EMP017', employeeName: 'THANACHAK SALAKTHONG', position: 'Offshore Technician', staffSalary: 35000, status: 'active', bankName: '', bankAccount: '', studentLoan: 0, workScheduleType: 'monthly_worker' };
+          const emp: Employee = { id: 'EMP017', employeeName: 'THANACHAK SALAKTHONG', position: 'Offshore Technician', staffSalary: 20000, officeSalary: 20000, status: 'active', bankName: '', bankAccount: '', studentLoan: 0, workScheduleType: 'monthly_worker' };
           activeEmployees.push(emp);
           dbUpsertEmployee(emp);
         }

@@ -458,10 +458,10 @@ export default function IndividualReport({
     const workHours = settings.defaultWorkHours || 8;
     if (activeEmployee.workScheduleType === 'staff' || activeEmployee.workScheduleType === 'monthly_worker') {
       const salary = activeEmployee.staffSalary || activeEmployee.officeSalary || 0;
-      return Number((salary / 30 / workHours).toFixed(2));
+      return salary / 30 / workHours;
     } else {
       const dayWage = activeEmployee.workshopRate || settings.defaultDailyWage || 700;
-      return Number((dayWage / workHours).toFixed(2));
+      return dayWage / workHours;
     }
   }, [activeEmployee, settings]);
 
@@ -593,9 +593,9 @@ export default function IndividualReport({
       const workHours = settings.defaultWorkHours || 8;
       if (isStaff) {
         const salary = emp.officeSalary || emp.staffSalary || 0;
-        empHourlyRate = Number((salary / 30 / workHours).toFixed(2));
+        empHourlyRate = salary / 30 / workHours;
       } else {
-        empHourlyRate = Number((localDayRate / workHours).toFixed(2));
+        empHourlyRate = localDayRate / workHours;
       }
 
       const ot20RateActual = isStaff ? 1.0 : (settings?.ot20Rate || 2.0);
@@ -1256,7 +1256,7 @@ export default function IndividualReport({
         localDayRate = activeEmployee?.wfhRate || 0;
       }
 
-      const localHourlyRate = isStaff ? hourlyRate : Number((localDayRate / (settings.defaultWorkHours || 8)).toFixed(2));
+      const localHourlyRate = isStaff ? hourlyRate : localDayRate / (settings.defaultWorkHours || 8);
 
       const ot20RateActual = isStaff ? 1.0 : (settings?.ot20Rate || 2.0);
       const normalPay = normHrs * localHourlyRate;
@@ -1345,10 +1345,10 @@ export default function IndividualReport({
     const workHours = settings.defaultWorkHours || 8;
     if (emp.workScheduleType === 'staff' || emp.workScheduleType === 'monthly_worker') {
       const salary = emp.staffSalary || emp.officeSalary || 0;
-      return Number((salary / 30 / workHours).toFixed(2));
+      return salary / 30 / workHours;
     } else {
       const dayWage = emp.workshopRate || settings.defaultDailyWage || 700;
-      return Number((dayWage / workHours).toFixed(2));
+      return dayWage / workHours;
     }
   };
 
@@ -1608,7 +1608,7 @@ export default function IndividualReport({
       }
 
       const isStaff = activeEmployee?.workScheduleType === 'staff' || activeEmployee?.workScheduleType === 'monthly_worker';
-      const localHourlyRate = isStaff ? hourlyRate : Number((localDayRate / (settings.defaultWorkHours || 8)).toFixed(2));
+      const localHourlyRate = isStaff ? hourlyRate : localDayRate / (settings.defaultWorkHours || 8);
 
       const ot20RateActual = isStaff ? 1.0 : (settings?.ot20Rate || 2.0);
       const normalPay = normHrs * localHourlyRate;
@@ -2973,7 +2973,7 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
                       localDayRate = activeEmployee?.wfhRate || 0;
                     }
 
-                    const localHourlyRate = isStaff ? hourlyRate : Number((localDayRate / (settings.defaultWorkHours || 8)).toFixed(2));
+                    const localHourlyRate = isStaff ? hourlyRate : localDayRate / (settings.defaultWorkHours || 8);
 
                     const itemOt15 = draft.ot15Hours || 0;
                     const itemOt20 = draft.ot20Hours || 0;

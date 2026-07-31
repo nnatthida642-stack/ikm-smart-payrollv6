@@ -201,7 +201,7 @@ export default function Dashboard({ entries, employees, holidays, isDark = true 
       if (isStaff) {
         const salary = emp.officeSalary || emp.staffSalary || 0;
         baseNormalPay = salary;
-        hourlyRate = Number((salary / 30 / settings.defaultWorkHours).toFixed(2));
+        hourlyRate = salary / 30 / settings.defaultWorkHours;
 
         let runningOt15Pay = 0;
         let runningOt20Pay = 0;
@@ -246,7 +246,7 @@ export default function Dashboard({ entries, employees, holidays, isDark = true 
           dailyWorkerSum += dayRate * (ent.normalHours / settings.defaultWorkHours);
 
           if (!isOffshore) {
-            const dayHourlyRate = Number((dayRate / settings.defaultWorkHours).toFixed(2));
+            const dayHourlyRate = dayRate / settings.defaultWorkHours;
             runningOt15Pay += ent.ot15Hours * dayHourlyRate * settings.ot15Rate;
             runningOt20Pay += ent.ot20Hours * dayHourlyRate * settings.ot20Rate;
             runningOt30Pay += ent.ot30Hours * dayHourlyRate * settings.ot30Rate;

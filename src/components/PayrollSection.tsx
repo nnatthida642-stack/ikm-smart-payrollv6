@@ -268,7 +268,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
         const salary = emp.officeSalary || emp.staffSalary || 0;
         baseNormalPay = salary;
         // Standard Thai Hourly Rate formula = (Staff Base Salary / 30 days / Default Work Hours)
-        hourlyRate = Number((salary / 30 / settings.defaultWorkHours).toFixed(2));
+        hourlyRate = salary / 30 / settings.defaultWorkHours;
 
         // Transportation allowance disabled for automatic calculation as requested ("ไม่ต้องใส่อัตโนมัติ")
         transportAllowanceTotal = 0;
@@ -323,7 +323,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
 
           // If NOT offshore, calculate day-specific OT based on that day's rate
           if (!isOffshore) {
-            const dayHourlyRate = Number((dayRate / settings.defaultWorkHours).toFixed(2));
+            const dayHourlyRate = dayRate / settings.defaultWorkHours;
             runningOt15Pay += ent.ot15Hours * dayHourlyRate * settings.ot15Rate;
             runningOt20Pay += ent.ot20Hours * dayHourlyRate * settings.ot20Rate;
             runningOt30Pay += ent.ot30Hours * dayHourlyRate * settings.ot30Rate;
@@ -332,7 +332,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
 
         baseNormalPay = dailyWorkerSum;
         // Default standard hourly rate is (default workshopRate / Default Work Hours) for Daily workers (for display/metadata)
-        hourlyRate = Number(((emp.workshopRate || settings.defaultDailyWage) / settings.defaultWorkHours).toFixed(2));
+        hourlyRate = (emp.workshopRate || settings.defaultDailyWage) / settings.defaultWorkHours;
 
         // Transportation allowance: Set to accumulated runningTransportAllowance for onsite days
         transportAllowanceTotal = runningTransportAllowance;
@@ -548,7 +548,9 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
       const ot20RateActual = isStaff ? 1.0 : settings.ot20Rate;
 
       // Compute standard hourly rate
-      const hourlyBase = Number((baseRate / settings.defaultWorkHours).toFixed(2));
+      const hourlyBase = isStaff 
+        ? ((emp.officeSalary || emp.staffSalary || 0) / 30 / settings.defaultWorkHours)
+        : (baseRate / settings.defaultWorkHours);
       
       // Calculate daily OT cash
       // Offshore projects have absolutely zero OT
@@ -728,7 +730,9 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
         const isStaff = emp.workScheduleType === 'staff' || emp.workScheduleType === 'monthly_worker';
         const ot20RateActual = isStaff ? 1.0 : settings.ot20Rate;
 
-        const hourlyBase = Number((baseRate / settings.defaultWorkHours).toFixed(2));
+        const hourlyBase = isStaff 
+          ? ((emp.officeSalary || emp.staffSalary || 0) / 30 / settings.defaultWorkHours)
+          : (baseRate / settings.defaultWorkHours);
         const otEarnings = (ent.ot15Hours * hourlyBase * settings.ot15Rate) + (ent.ot20Hours * hourlyBase * ot20RateActual) + (ent.ot30Hours * hourlyBase * settings.ot30Rate);
         const dayTotal = baseRate + otEarnings;
 
