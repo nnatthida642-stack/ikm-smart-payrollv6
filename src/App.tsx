@@ -32,11 +32,12 @@ import {
   BarChart4, FileText, Users, CalendarDays, 
   HelpCircle, Sparkles, CheckSquare, Clock, ArrowRight,
   Coins, UserCheck, Database, Sliders, CheckCircle2, Sun, Moon,
-  Lock
+  Lock, PlusCircle
 } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'ledger' | 'employees' | 'holidays' | 'payroll' | 'individual-report' | 'settings' | 'help'>('ledger');
+  const [activeTab, setActiveTab] = useState<'add-row' | 'dashboard' | 'ledger' | 'employees' | 'holidays' | 'payroll' | 'individual-report' | 'settings' | 'help'>('ledger');
+  const [openAddRowSignal, setOpenAddRowSignal] = useState<number>(0);
   const [supabaseConnected, setSupabaseConnected] = useState<boolean>(true);
   const [isEmployeesUnlocked, setIsEmployeesUnlocked] = useState<boolean>(false);
   const [isPayrollUnlocked, setIsPayrollUnlocked] = useState<boolean>(false);
@@ -654,6 +655,22 @@ export default function App() {
           <div className="max-w-full mx-auto px-4 md:px-8 xl:px-12">
             <nav className="flex space-x-2 py-2 overflow-x-auto">
               <button
+                id="tab-add-row"
+                onClick={() => {
+                  setActiveTab('add-row');
+                  setOpenAddRowSignal(prev => prev + 1);
+                }}
+                className={`py-2 px-4 rounded-sm text-xs uppercase tracking-wider font-extrabold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                  activeTab === 'add-row'
+                    ? 'bg-amber-400 text-black shadow-md ring-2 ring-[#D4AF37]'
+                    : 'bg-[#D4AF37] text-black hover:bg-amber-300 shadow-sm font-bold'
+                }`}
+              >
+                <PlusCircle className="w-4 h-4 text-black" />
+                ➕ เพิ่มรายการ (ADD ROW)
+              </button>
+
+              <button
                 id="tab-ledger"
                 onClick={() => setActiveTab('ledger')}
                 className={`py-2 px-4 rounded-sm text-xs uppercase tracking-wider font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
@@ -763,7 +780,7 @@ export default function App() {
 
       {/* Main Workspace Frame */}
       <main className="flex-1 max-w-full w-full mx-auto px-4 md:px-8 xl:px-12 py-6 font-sans">
-        {activeTab === 'ledger' && (
+        {(activeTab === 'ledger' || activeTab === 'add-row') && (
           <div className="space-y-4">
             <div className={`border p-4 rounded flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors duration-250 ${
               isDark 
@@ -805,6 +822,8 @@ export default function App() {
               onClearAllEntries={handleClearAllEntries}
               onSyncFromDatabase={handleSyncFromDatabase}
               isDark={isDark}
+              autoOpenAddRow={activeTab === 'add-row'}
+              openAddRowSignal={openAddRowSignal}
             />
           </div>
         )}

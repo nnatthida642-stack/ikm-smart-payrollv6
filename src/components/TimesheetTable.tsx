@@ -18,6 +18,8 @@ interface TimesheetTableProps {
   onClearAllEntries: () => void;
   onSyncFromDatabase?: () => void;
   isDark?: boolean;
+  autoOpenAddRow?: boolean;
+  openAddRowSignal?: number;
 }
 
 function generateKeyUUID() {
@@ -46,8 +48,11 @@ export default function TimesheetTable({
   onBulkAddEntries,
   onClearAllEntries,
   onSyncFromDatabase,
-  isDark = false
+  isDark = false,
+  autoOpenAddRow = false,
+  openAddRowSignal = 0
 }: TimesheetTableProps) {
+  const addRowFormRef = React.useRef<HTMLFormElement>(null);
   // Action confirmation modal state
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -110,6 +115,15 @@ export default function TimesheetTable({
   
   // Custom single entry form active row state
   const [isAdding, setIsAdding] = useState(false);
+
+  React.useEffect(() => {
+    if (autoOpenAddRow || (openAddRowSignal && openAddRowSignal > 0)) {
+      setIsAdding(true);
+      setTimeout(() => {
+        addRowFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+  }, [autoOpenAddRow, openAddRowSignal]);
   const [newEntry, setNewEntry] = useState<Partial<TimesheetEntry>>({
     employeeName: employees[0]?.employeeName || '',
     date: '2026-03-23',
@@ -831,7 +845,7 @@ export default function TimesheetTable({
 
       {/* Inline Form to Add Single Entry */}
       {isAdding && (
-        <form onSubmit={handleAddNew} className="bg-[#141414] rounded border border-white/10 p-5 transition-all animate-fade-in space-y-4">
+        <form ref={addRowFormRef} onSubmit={handleAddNew} className="bg-[#141414] rounded border border-white/10 p-5 transition-all animate-fade-in space-y-4">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-[#D4AF37] flex items-center gap-1.5 font-serif">
               <Plus className="w-4 h-4 text-[#D4AF37]" />
