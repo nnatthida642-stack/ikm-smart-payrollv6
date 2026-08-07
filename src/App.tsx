@@ -14,6 +14,7 @@ import PayrollSection from './components/PayrollSection';
 import IndividualReport from './components/IndividualReport';
 import SettingsSection from './components/SettingsSection';
 import HelpSection from './components/HelpSection';
+import BackupModal from './components/BackupModal';
 
 // Supabase sync tools
 import { 
@@ -32,7 +33,7 @@ import {
   BarChart4, FileText, Users, CalendarDays, 
   HelpCircle, Sparkles, CheckSquare, Clock, ArrowRight,
   Coins, UserCheck, Database, Sliders, CheckCircle2, Sun, Moon,
-  Lock, PlusCircle
+  Lock, PlusCircle, HardDrive
 } from 'lucide-react';
 
 export default function App() {
@@ -41,6 +42,18 @@ export default function App() {
   const [supabaseConnected, setSupabaseConnected] = useState<boolean>(true);
   const [isEmployeesUnlocked, setIsEmployeesUnlocked] = useState<boolean>(false);
   const [isPayrollUnlocked, setIsPayrollUnlocked] = useState<boolean>(false);
+
+  // Backup & Auto-Save State
+  const [isBackupModalOpen, setIsBackupModalOpen] = useState<boolean>(false);
+  const [lastAutoSaveTime, setLastAutoSaveTime] = useState<Date | null>(new Date());
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem('thai_ot_autosave_enabled');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+  const [autoSaveIntervalSec, setAutoSaveIntervalSec] = useState<number>(() => {
+    const saved = localStorage.getItem('thai_ot_autosave_interval');
+    return saved ? Number(saved) : 30;
+  });
 
   // Theme Toggle: State default to 'light' for comfortable bright UI (สีโทนสว่าง สบายตา)
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -252,6 +265,79 @@ export default function App() {
     setEntries(balanced);
     localStorage.setItem('thai_ot_entries', JSON.stringify(balanced));
     return balanced;
+  };
+
+  // Auto-Save Effect & Handlers
+  useEffect(() => {
+    localStorage.setItem('thai_ot_autosave_enabled', JSON.stringify(autoSaveEnabled));
+  }, [autoSaveEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem('thai_ot_autosave_interval', autoSaveIntervalSec.toString());
+  }, [autoSaveIntervalSec]);
+
+  const performAutoSave = () => {
+    if (employees.length > 0) {
+      localStorage.setItem('thai_ot_employees', JSON.stringify(employees));
+    }
+    if (entries.length > 0) {
+      localStorage.setItem('thai_ot_entries', JSON.stringify(entries));
+    }
+    if (holidays.length > 0) {
+      localStorage.setItem('thai_ot_holidays', JSON.stringify(holidays));
+    }
+    localStorage.setItem('thai_ot_settings', JSON.stringify(settings));
+    const now = new Date();
+    localStorage.setItem('thai_ot_autosave_last_timestamp', now.toISOString());
+    setLastAutoSaveTime(now);
+  };
+
+  useEffect(() => {
+    if (!autoSaveEnabled) return;
+    const timer = setInterval(() => {
+      performAutoSave();
+    }, autoSaveIntervalSec * 1000);
+    return () => clearInterval(timer);
+  }, [autoSaveEnabled, autoSaveIntervalSec, employees, entries, holidays, settings]);
+
+  const handleRestoreBackup = (data: any) => {
+    if (Array.isArray(data.employees) && data.employees.length > 0) {
+      setEmployees(data.employees);
+      localStorage.setItem('thai_ot_employees', JSON.stringify(data.employees));
+      data.employees.forEach((emp: any) => dbUpsertEmployee(emp));
+    }
+    if (Array.isArray(data.entries) && data.entries.length > 0) {
+      setEntries(data.entries);
+      localStorage.setItem('thai_ot_entries', JSON.stringify(data.entries));
+      dbBulkInsertTimesheets(data.entries);
+    }
+    if (Array.isArray(data.holidays) && data.holidays.length > 0) {
+      setHolidays(data.holidays);
+      localStorage.setItem('thai_ot_holidays', JSON.stringify(data.holidays));
+    }
+    if (data.settings) {
+      setSettings(data.settings);
+      localStorage.setItem('thai_ot_settings', JSON.stringify(data.settings));
+    }
+    if (data.supplements) {
+      localStorage.setItem('thai_ot_individual_supplements', JSON.stringify(data.supplements));
+    }
+    if (data.allowances) {
+      localStorage.setItem('payroll_allowances', JSON.stringify(data.allowances));
+    }
+    if (data.deductions) {
+      localStorage.setItem('payroll_deductions', JSON.stringify(data.deductions));
+    }
+    if (data.customTaxes) {
+      localStorage.setItem('payroll_custom_taxes', JSON.stringify(data.customTaxes));
+    }
+    if (data.customStudentLoans) {
+      localStorage.setItem('payroll_custom_student_loans', JSON.stringify(data.customStudentLoans));
+    }
+    if (data.manualLeaveDays) {
+      localStorage.setItem('thai_ot_manual_leave_days', JSON.stringify(data.manualLeaveDays));
+    }
+    performAutoSave();
   };
 
   // State Modification Actions (passed to subcomponents with instant Supabase push)
@@ -613,6 +699,25 @@ export default function App() {
             </div>
 
             <div className="flex flex-wrap items-center gap-3 self-start md:self-auto text-xs">
+              {/* Backup & Auto-Save Center Button */}
+              <button
+                onClick={() => setIsBackupModalOpen(true)}
+                className={`px-3 py-2 rounded border transition-all duration-200 flex items-center gap-2 cursor-pointer text-xs font-bold ${
+                  isDark 
+                    ? 'bg-[#141414] border-white/15 hover:bg-white/10 text-[#D4AF37]' 
+                    : 'bg-amber-50 border-amber-300 hover:bg-amber-100 text-amber-900 shadow-xs'
+                }`}
+                title="ระบบสำรองข้อมูลอัตโนมัติและส่งออกไฟล์ (Backup & Restore Center)"
+                id="backup-button"
+              >
+                <HardDrive className="w-4 h-4 text-[#D4AF37]" />
+                <span className="font-serif">สำรองข้อมูล (Backup)</span>
+                <span className="flex h-2 w-2 relative">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+              </button>
+
               {/* Theme Toggle Button Widget */}
               <button
                 onClick={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
@@ -942,6 +1047,24 @@ export default function App() {
           />
         )}
       </main>
+
+      {/* Backup & Restore Center Modal */}
+      <BackupModal
+        isOpen={isBackupModalOpen}
+        onClose={() => setIsBackupModalOpen(false)}
+        employees={employees}
+        entries={entries}
+        holidays={holidays}
+        settings={settings}
+        isDark={isDark}
+        lastAutoSaveTime={lastAutoSaveTime}
+        autoSaveEnabled={autoSaveEnabled}
+        setAutoSaveEnabled={setAutoSaveEnabled}
+        autoSaveIntervalSec={autoSaveIntervalSec}
+        setAutoSaveIntervalSec={setAutoSaveIntervalSec}
+        onManualTriggerAutoSave={performAutoSave}
+        onRestoreBackup={handleRestoreBackup}
+      />
 
       {/* Humble Footer */}
       <footer className={`border-t py-6 text-center text-xs font-light font-mono transition-colors duration-250 ${
