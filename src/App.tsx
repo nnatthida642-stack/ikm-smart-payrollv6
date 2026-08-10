@@ -887,33 +887,35 @@ export default function App() {
       <main className="flex-1 max-w-full w-full mx-auto px-4 md:px-8 xl:px-12 py-6 font-sans">
         {(activeTab === 'ledger' || activeTab === 'add-row') && (
           <div className="space-y-4">
-            <div className={`border p-4 rounded flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors duration-250 ${
-              isDark 
-                ? 'bg-[#141414] border-[#D4AF37]/20 text-gray-250' 
-                : 'bg-white border-slate-200 shadow-xs text-slate-750'
-            }`}>
-              <div className="flex items-start gap-3">
-                <div className="p-2 bg-[#D4AF37]/10 rounded text-[#D4AF37] mt-0.5">
-                  <Sparkles className="w-4 h-4 animate-pulse" />
+            {activeTab === 'ledger' && (
+              <div className={`border p-4 rounded flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors duration-250 ${
+                isDark 
+                  ? 'bg-[#141414] border-[#D4AF37]/20 text-gray-250' 
+                  : 'bg-white border-slate-200 shadow-xs text-slate-750'
+              }`}>
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-[#D4AF37]/10 rounded text-[#D4AF37] mt-0.5">
+                    <Sparkles className="w-4 h-4 animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-white' : 'text-slate-850'}`}>เทคนิคประหยัดความจำ: นำเข้าตารางงานจาก Excel / Sheets ได้ทันที!</h3>
+                    <p className="text-[11px] text-gray-400 font-light mt-0.5">
+                      ก๊อปปี้คลิปบอร์ดแบบกลุ่มแถวตารางจาก Google Sheet เข้ามาวางได้ทันที ทุกอย่างจะถูกอัปโหลดขึ้น Supabase และลงรายละเอียดสมบูรณ์
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-white' : 'text-slate-850'}`}>เทคนิคประหยัดความจำ: นำเข้าตารางงานจาก Excel / Sheets ได้ทันที!</h3>
-                  <p className="text-[11px] text-gray-400 font-light mt-0.5">
-                    ก๊อปปี้คลิปบอร์ดแบบกลุ่มแถวตารางจาก Google Sheet เข้ามาวางได้ทันที ทุกอย่างจะถูกอัปโหลดขึ้น Supabase และลงรายละเอียดสมบูรณ์
-                  </p>
-                </div>
+                <button 
+                  id="quick-start-import-assistant"
+                  onClick={() => {
+                    const el = document.getElementById('open-import-modal-btn');
+                    if (el) el.click();
+                  }}
+                  className="bg-[#D4AF37] hover:bg-amber-400 text-black text-xs font-bold uppercase tracking-wider py-1.5 px-3.5 rounded-sm transition-colors cursor-pointer shrink-0"
+                >
+                  นำเข้าข้อมูลด่วน
+                </button>
               </div>
-              <button 
-                id="quick-start-import-assistant"
-                onClick={() => {
-                  const el = document.getElementById('open-import-modal-btn');
-                  if (el) el.click();
-                }}
-                className="bg-[#D4AF37] hover:bg-amber-400 text-black text-xs font-bold uppercase tracking-wider py-1.5 px-3.5 rounded-sm transition-colors cursor-pointer shrink-0"
-              >
-                นำเข้าข้อมูลด่วน
-              </button>
-            </div>
+            )}
             
             <TimesheetTable
               entries={entries}
@@ -929,6 +931,7 @@ export default function App() {
               isDark={isDark}
               autoOpenAddRow={activeTab === 'add-row'}
               openAddRowSignal={openAddRowSignal}
+              activeTab={activeTab}
             />
           </div>
         )}

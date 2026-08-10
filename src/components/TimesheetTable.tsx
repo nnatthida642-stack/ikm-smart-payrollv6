@@ -20,6 +20,7 @@ interface TimesheetTableProps {
   isDark?: boolean;
   autoOpenAddRow?: boolean;
   openAddRowSignal?: number;
+  activeTab?: string;
 }
 
 function generateKeyUUID() {
@@ -50,7 +51,8 @@ export default function TimesheetTable({
   onSyncFromDatabase,
   isDark = false,
   autoOpenAddRow = false,
-  openAddRowSignal = 0
+  openAddRowSignal = 0,
+  activeTab = 'ledger'
 }: TimesheetTableProps) {
   const addRowFormRef = React.useRef<HTMLFormElement>(null);
   // Action confirmation modal state
@@ -659,189 +661,193 @@ export default function TimesheetTable({
   return (
     <div className="space-y-4">
       {/* Search & Actions Panel */}
-      <div className="bg-[#0D0D0D] border border-white/10 rounded p-4 space-y-3">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
-              <Search className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
+      {activeTab !== 'add-row' && (
+        <div className="bg-[#0D0D0D] border border-white/10 rounded p-4 space-y-3">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative">
+                <Search className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  id="search-timesheets-input"
+                  type="text"
+                  placeholder="ค้นหารายการ..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="text-xs bg-[#141414] border border-white/10 pl-9 pr-3 py-1.5 text-white placeholder-gray-500 rounded-sm w-52 focus:bg-[#1A1A1A] focus:outline-hidden focus:border-[#D4AF37]"
+                />
+              </div>
+
+              {/* Employee Filter */}
+              <select
+                id="filter-employee-select"
+                value={employeeFilter}
+                onChange={(e) => setEmployeeFilter(e.target.value)}
+                className="text-xs bg-[#141414] border border-white/10 text-gray-300 rounded-sm px-2.5 py-1.5 focus:outline-hidden focus:border-[#D4AF37] cursor-pointer"
+              >
+                <option value="">-- กรองรายพนักงาน (All) --</option>
+                {employees.map(emp => (
+                  <option key={emp.id} value={emp.employeeName} className="bg-[#141414]">{emp.id} - {emp.employeeName}</option>
+                ))}
+              </select>
+
+              {/* Project Filter */}
+              <select
+                id="filter-project-select"
+                value={projectFilter}
+                onChange={(e) => setProjectFilter(e.target.value)}
+                className="text-xs bg-[#141414] border border-white/10 text-gray-300 rounded-sm px-2.5 py-1.5 focus:outline-hidden focus:border-[#D4AF37] cursor-pointer"
+              >
+                <option value="">-- กรองรายโครงการ (All) --</option>
+                {allProjects.map((p, idx) => (
+                  <option key={idx} value={p} className="bg-[#141414]">{p}</option>
+                ))}
+              </select>
+
+              {(employeeFilter || projectFilter || searchQuery || startDateFilter || endDateFilter || startTimeFilter || endTimeFilter) && (
+                <button
+                  id="clear-filters-btn"
+                  onClick={() => {
+                    setEmployeeFilter('');
+                    setProjectFilter('');
+                    setSearchQuery('');
+                    setStartDateFilter('');
+                    setEndDateFilter('');
+                    setStartTimeFilter('');
+                    setEndTimeFilter('');
+                  }}
+                  className="text-xs text-red-400 font-medium hover:text-red-300 hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  ล้างการกรอง (Clear)
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              {activeTab !== 'ledger' && (
+                <button
+                  id="toggle-add-manual"
+                  onClick={() => setIsAdding(!isAdding)}
+                  className="px-3 py-1.5 border border-[#D4AF37]/35 hover:bg-[#D4AF37] hover:text-black hover:border-transparent text-[#D4AF37] rounded-sm text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all uppercase tracking-wider"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  เพิ่มรายการ (Add Row)
+                </button>
+              )}
+              <button
+                id="open-import-modal-btn"
+                onClick={() => setShowImportModal(true)}
+                className="px-3 py-1.5 bg-[#D4AF37] hover:bg-amber-400 text-black rounded-sm text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md transition-all uppercase tracking-wider"
+              >
+                <FileUp className="w-3.5 h-3.5" />
+                นำเข้าจาก Excel / Sheets
+              </button>
+              <button
+                id="export-timesheet-btn"
+                onClick={exportFullTimesheetCSV}
+                disabled={filteredEntries.length === 0}
+                className="px-3 py-1.5 bg-[#141414] hover:bg-[#1A1A1A] text-white border border-white/15 rounded-sm text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <Download className="w-3.5 h-3.5" />
+                ส่งออก CSV
+              </button>
+              <button
+                id="approve-all-visible-btn"
+                onClick={handleApproveAllPending}
+                disabled={filteredEntries.filter(e => e.status !== 'Approved').length === 0}
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-30 disabled:hover:bg-emerald-650 disabled:bg-emerald-900/10 text-white rounded-sm text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all uppercase tracking-wider"
+                title="อนุมัติรายการที่ค้างอยู่ทั้งหมดที่กำลังแสดง"
+              >
+                <Check className="w-3.5 h-3.5" />
+                อนุมัติทั้งหมด (Approve All)
+              </button>
+              {onSyncFromDatabase && (
+                <button
+                  id="sync-database-btn"
+                  onClick={onSyncFromDatabase}
+                  className="px-3 py-1.5 bg-slate-600 hover:bg-slate-700 text-white rounded-sm text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all uppercase tracking-wider"
+                  title="ดึงข้อมูลย้อนหลังกลับมาแสดงผลจากฐานข้อมูล Supabase"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  ดึงข้อมูลจาก Database
+                </button>
+              )}
+              <button
+                id="clear-all-timesheets-btn"
+                onClick={() => {
+                  setConfirmModal({
+                    isOpen: true,
+                    title: 'ยืนยันเคลียร์ข้อมูลบนหน้าจอ',
+                    message: 'คุณแน่ใจหรือเปล่าที่จะล้าง (Clear) รายการ Timesheet บนหน้าจอ? การกระทำนี้จะเป็นเพียงการล้างการแสดงผลบนหน้าจอชั่วคราวเท่านั้น โดยข้อมูลพนักงานและประวัติการทำงานจริงทั้งหมดจะยังคงอยู่และถูกเก็บบันทึกบนฐานข้อมูลออนไลน์ (Supabase) อย่างปลอดภัย คุณสามารถกด "ดึงข้อมูลจาก Database" เพื่อเรียกข้อมูลกลับคืนมาแสดงได้ตลอดเวลา',
+                    actionType: 'clear_all'
+                  });
+                }}
+                className="px-2.5 py-1.5 text-xs font-bold text-red-600 hover:text-red-700 dark:text-red-450 bg-red-50 hover:bg-red-105 border border-red-200 dark:border-red-900/40 dark:bg-[#141414] dark:hover:bg-red-950/20 rounded transition-all cursor-pointer"
+                title="ล้างแดชบอร์ดรายการเพื่อบันทึกก้อนใหม่"
+              >
+                เคลียร์ข้อมูลทั้งหมด
+              </button>
+            </div>
+          </div>
+
+          {/* Date & Time Range Filters Row */}
+          <div className="pt-2.5 border-t border-white/10 flex flex-wrap items-center gap-4 text-[11px] text-gray-300">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[#D4AF37] font-semibold uppercase tracking-wider text-[10px]">ช่วงวันที่:</span>
               <input
-                id="search-timesheets-input"
-                type="text"
-                placeholder="ค้นหารายการ..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="text-xs bg-[#141414] border border-white/10 pl-9 pr-3 py-1.5 text-white placeholder-gray-500 rounded-sm w-52 focus:bg-[#1A1A1A] focus:outline-hidden focus:border-[#D4AF37]"
+                id="filter-start-date"
+                type="date"
+                value={startDateFilter}
+                onChange={(e) => setStartDateFilter(e.target.value)}
+                className="bg-[#141414] border border-white/10 text-gray-200 rounded px-1.5 py-0.5 text-xs focus:outline-hidden focus:border-[#D4AF37] max-w-[125px]"
+              />
+              <span className="text-gray-500">ถึง</span>
+              <input
+                id="filter-end-date"
+                type="date"
+                value={endDateFilter}
+                onChange={(e) => setEndDateFilter(e.target.value)}
+                className="bg-[#141414] border border-white/10 text-gray-200 rounded px-1.5 py-0.5 text-xs focus:outline-hidden focus:border-[#D4AF37] max-w-[125px]"
               />
             </div>
 
-            {/* Employee Filter */}
-            <select
-              id="filter-employee-select"
-              value={employeeFilter}
-              onChange={(e) => setEmployeeFilter(e.target.value)}
-              className="text-xs bg-[#141414] border border-white/10 text-gray-300 rounded-sm px-2.5 py-1.5 focus:outline-hidden focus:border-[#D4AF37] cursor-pointer"
-            >
-              <option value="">-- กรองรายพนักงาน (All) --</option>
-              {employees.map(emp => (
-                <option key={emp.id} value={emp.employeeName} className="bg-[#141414]">{emp.id} - {emp.employeeName}</option>
-              ))}
-            </select>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[#D4AF37] font-semibold uppercase tracking-wider text-[10px]">ช่วงเวลาทำงาน:</span>
+              <span className="text-gray-500 text-[10px] font-mono">เข้าตั้งเเต่ (Time In ≥)</span>
+              <input
+                id="filter-start-time"
+                type="time"
+                value={startTimeFilter}
+                onChange={(e) => setStartTimeFilter(e.target.value)}
+                className="bg-[#141414] border border-white/10 text-gray-200 rounded px-1.5 py-0.5 text-xs w-20 focus:outline-hidden focus:border-[#D4AF37]"
+              />
+              <span className="text-gray-500 text-[10px] font-mono font-bold">|</span>
+              <span className="text-gray-500 text-[10px] font-mono">ออกไม่เกิน (Time Out ≤)</span>
+              <input
+                id="filter-end-time"
+                type="time"
+                value={endTimeFilter}
+                onChange={(e) => setEndTimeFilter(e.target.value)}
+                className="bg-[#141414] border border-white/10 text-gray-200 rounded px-1.5 py-0.5 text-xs w-20 focus:outline-hidden focus:border-[#D4AF37]"
+              />
+            </div>
 
-            {/* Project Filter */}
-            <select
-              id="filter-project-select"
-              value={projectFilter}
-              onChange={(e) => setProjectFilter(e.target.value)}
-              className="text-xs bg-[#141414] border border-white/10 text-gray-300 rounded-sm px-2.5 py-1.5 focus:outline-hidden focus:border-[#D4AF37] cursor-pointer"
-            >
-              <option value="">-- กรองรายโครงการ (All) --</option>
-              {allProjects.map((p, idx) => (
-                <option key={idx} value={p} className="bg-[#141414]">{p}</option>
-              ))}
-            </select>
-
-            {(employeeFilter || projectFilter || searchQuery || startDateFilter || endDateFilter || startTimeFilter || endTimeFilter) && (
+            {(startDateFilter || endDateFilter || startTimeFilter || endTimeFilter) && (
               <button
-                id="clear-filters-btn"
+                id="clear-range-filters-btn"
                 onClick={() => {
-                  setEmployeeFilter('');
-                  setProjectFilter('');
-                  setSearchQuery('');
                   setStartDateFilter('');
                   setEndDateFilter('');
                   setStartTimeFilter('');
                   setEndTimeFilter('');
                 }}
-                className="text-xs text-red-400 font-medium hover:text-red-300 hover:underline flex items-center gap-1 cursor-pointer"
+                className="text-[#D4AF37] hover:text-yellow-400 font-bold cursor-pointer text-[10.5px] uppercase tracking-wider underline ml-auto transition-colors"
               >
-                ล้างการกรอง (Clear)
+                ล้างค่าช่วงเวลา (Reset Ranges)
               </button>
             )}
           </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              id="toggle-add-manual"
-              onClick={() => setIsAdding(!isAdding)}
-              className="px-3 py-1.5 border border-[#D4AF37]/35 hover:bg-[#D4AF37] hover:text-black hover:border-transparent text-[#D4AF37] rounded-sm text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all uppercase tracking-wider"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              เพิ่มรายการ (Add Row)
-            </button>
-            <button
-              id="open-import-modal-btn"
-              onClick={() => setShowImportModal(true)}
-              className="px-3 py-1.5 bg-[#D4AF37] hover:bg-amber-400 text-black rounded-sm text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md transition-all uppercase tracking-wider"
-            >
-              <FileUp className="w-3.5 h-3.5" />
-              นำเข้าจาก Excel / Sheets
-            </button>
-            <button
-              id="export-timesheet-btn"
-              onClick={exportFullTimesheetCSV}
-              disabled={filteredEntries.length === 0}
-              className="px-3 py-1.5 bg-[#141414] hover:bg-[#1A1A1A] text-white border border-white/15 rounded-sm text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              <Download className="w-3.5 h-3.5" />
-              ส่งออก CSV
-            </button>
-            <button
-              id="approve-all-visible-btn"
-              onClick={handleApproveAllPending}
-              disabled={filteredEntries.filter(e => e.status !== 'Approved').length === 0}
-              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-30 disabled:hover:bg-emerald-650 disabled:bg-emerald-900/10 text-white rounded-sm text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all uppercase tracking-wider"
-              title="อนุมัติรายการที่ค้างอยู่ทั้งหมดที่กำลังแสดง"
-            >
-              <Check className="w-3.5 h-3.5" />
-              อนุมัติทั้งหมด (Approve All)
-            </button>
-            {onSyncFromDatabase && (
-              <button
-                id="sync-database-btn"
-                onClick={onSyncFromDatabase}
-                className="px-3 py-1.5 bg-slate-600 hover:bg-slate-700 text-white rounded-sm text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all uppercase tracking-wider"
-                title="ดึงข้อมูลย้อนหลังกลับมาแสดงผลจากฐานข้อมูล Supabase"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                ดึงข้อมูลจาก Database
-              </button>
-            )}
-            <button
-              id="clear-all-timesheets-btn"
-              onClick={() => {
-                setConfirmModal({
-                  isOpen: true,
-                  title: 'ยืนยันเคลียร์ข้อมูลบนหน้าจอ',
-                  message: 'คุณแน่ใจหรือเปล่าที่จะล้าง (Clear) รายการ Timesheet บนหน้าจอ? การกระทำนี้จะเป็นเพียงการล้างการแสดงผลบนหน้าจอชั่วคราวเท่านั้น โดยข้อมูลพนักงานและประวัติการทำงานจริงทั้งหมดจะยังคงอยู่และถูกเก็บบันทึกบนฐานข้อมูลออนไลน์ (Supabase) อย่างปลอดภัย คุณสามารถกด "ดึงข้อมูลจาก Database" เพื่อเรียกข้อมูลกลับคืนมาแสดงได้ตลอดเวลา',
-                  actionType: 'clear_all'
-                });
-              }}
-              className="px-2.5 py-1.5 text-xs font-bold text-red-600 hover:text-red-700 dark:text-red-450 bg-red-50 hover:bg-red-105 border border-red-200 dark:border-red-900/40 dark:bg-[#141414] dark:hover:bg-red-950/20 rounded transition-all cursor-pointer"
-              title="ล้างแดชบอร์ดรายการเพื่อบันทึกก้อนใหม่"
-            >
-              เคลียร์ข้อมูลทั้งหมด
-            </button>
-          </div>
         </div>
-
-        {/* Date & Time Range Filters Row */}
-        <div className="pt-2.5 border-t border-white/10 flex flex-wrap items-center gap-4 text-[11px] text-gray-300">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[#D4AF37] font-semibold uppercase tracking-wider text-[10px]">ช่วงวันที่:</span>
-            <input
-              id="filter-start-date"
-              type="date"
-              value={startDateFilter}
-              onChange={(e) => setStartDateFilter(e.target.value)}
-              className="bg-[#141414] border border-white/10 text-gray-200 rounded px-1.5 py-0.5 text-xs focus:outline-hidden focus:border-[#D4AF37] max-w-[125px]"
-            />
-            <span className="text-gray-500">ถึง</span>
-            <input
-              id="filter-end-date"
-              type="date"
-              value={endDateFilter}
-              onChange={(e) => setEndDateFilter(e.target.value)}
-              className="bg-[#141414] border border-white/10 text-gray-200 rounded px-1.5 py-0.5 text-xs focus:outline-hidden focus:border-[#D4AF37] max-w-[125px]"
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[#D4AF37] font-semibold uppercase tracking-wider text-[10px]">ช่วงเวลาทำงาน:</span>
-            <span className="text-gray-500 text-[10px] font-mono">เข้าตั้งเเต่ (Time In ≥)</span>
-            <input
-              id="filter-start-time"
-              type="time"
-              value={startTimeFilter}
-              onChange={(e) => setStartTimeFilter(e.target.value)}
-              className="bg-[#141414] border border-white/10 text-gray-200 rounded px-1.5 py-0.5 text-xs w-20 focus:outline-hidden focus:border-[#D4AF37]"
-            />
-            <span className="text-gray-500 text-[10px] font-mono font-bold">|</span>
-            <span className="text-gray-500 text-[10px] font-mono">ออกไม่เกิน (Time Out ≤)</span>
-            <input
-              id="filter-end-time"
-              type="time"
-              value={endTimeFilter}
-              onChange={(e) => setEndTimeFilter(e.target.value)}
-              className="bg-[#141414] border border-white/10 text-gray-200 rounded px-1.5 py-0.5 text-xs w-20 focus:outline-hidden focus:border-[#D4AF37]"
-            />
-          </div>
-
-          {(startDateFilter || endDateFilter || startTimeFilter || endTimeFilter) && (
-            <button
-              id="clear-range-filters-btn"
-              onClick={() => {
-                setStartDateFilter('');
-                setEndDateFilter('');
-                setStartTimeFilter('');
-                setEndTimeFilter('');
-              }}
-              className="text-[#D4AF37] hover:text-yellow-400 font-bold cursor-pointer text-[10.5px] uppercase tracking-wider underline ml-auto transition-colors"
-            >
-              ล้างค่าช่วงเวลา (Reset Ranges)
-            </button>
-          )}
-        </div>
-      </div>
+      )}
 
       {/* Inline Form to Add Single Entry */}
       {isAdding && (
