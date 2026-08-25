@@ -471,6 +471,8 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
     let grandGross = 0;
     let grandNet = 0;
     let grandPerdiem = 0;
+    let grandConfineSpace = 0;
+    let grandIncentive = 0;
 
     payrollDetails.forEach(p => {
       grandNormalPay += p.baseNormalPay;
@@ -485,6 +487,8 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
       grandGross += p.totalIncome;
       grandNet += p.netIncome;
       grandPerdiem += p.totalPerdiem;
+      grandConfineSpace += (p.totalConfineSpace || 0);
+      grandIncentive += (p.totalIncentive || 0);
     });
 
     return {
@@ -499,7 +503,9 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
       studentLoan: Math.round(grandStudentLoan),
       gross: Number(grandGross.toFixed(2)),
       net: Number(grandNet.toFixed(2)),
-      perdiem: Number(grandPerdiem.toFixed(2))
+      perdiem: Number(grandPerdiem.toFixed(2)),
+      confineSpace: Number(grandConfineSpace.toFixed(2)),
+      incentive: Number(grandIncentive.toFixed(2))
     };
   }, [payrollDetails]);
 
@@ -630,6 +636,8 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
       'ค่าจ้างมูลฐาน (Base Normal Pay)',
       'ยอดสะสม OT (Accumulated OT)',
       'ค่าเบี้ยเลี้ยงสะสม (Perdiem)',
+      'CONFINE SPACE',
+      'INCENTIVE',
       'เงินเพิ่มพิเศษอื่น ๆ (Other Income)',
       'รายได้รวม (Gross Income)',
       'เงินหักอื่น ๆ (Other Deduction)',
@@ -649,6 +657,8 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
       p.baseNormalPay,
       (p.ot15Wage + p.ot20Wage + p.ot30Wage),
       p.totalPerdiem,
+      p.totalConfineSpace || 0,
+      p.totalIncentive || 0,
       p.manualOtherIncome,
       p.totalIncome,
       p.otherDeduction,
@@ -849,10 +859,74 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
     }
   };
 
+  // Format numbers to #,##0.00 standard (2 decimal places) for Pay Slip
+  const formatSlipNumber = (val: number | undefined | null): string => {
+    const num = typeof val === 'number' && !isNaN(val) ? val : 0;
+    return num.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  };
+
   // Convert numbers to Thai text for Payslips
   const thaiBahtText = (num: number): string => {
-    // Basic fallback or clean visual design, can write a simple converter or display formatted numeral
-    return num.toLocaleString('th-TH', { style: 'currency', currency: 'THB' }) + ' บาทถ้วน';
+    if (isNaN(num) || num === 0) return 'ศูนย์บาทถ้วน';
+
+    const textNum = ['ศูนย์', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า'];
+    const textUnit = ['', 'สิบ', 'ร้อย', 'พัน', 'หมื่น', 'แสน', 'ล้าน'];
+
+    const convertGroup = (nStr: string): string => {
+      let res = '';
+      const len = nStr.length;
+      for (let i = 0; i < len; i++) {
+        const digit = parseInt(nStr.charAt(i), 10);
+        const pos = len - i - 1;
+        if (digit !== 0) {
+          if (pos === 0 && digit === 1 && len > 1 && parseInt(nStr.charAt(len - 2), 10) !== 0) {
+            res += 'เอ็ด';
+          } else if (pos === 1 && digit === 2) {
+            res += 'ยี่สิบ';
+          } else if (pos === 1 && digit === 1) {
+            res += 'สิบ';
+          } else {
+            res += textNum[digit] + (pos > 0 ? textUnit[pos] : '');
+          }
+        }
+      }
+      return res;
+    };
+
+    const isNegative = num < 0;
+    const absNum = Math.abs(num);
+    const fixed = absNum.toFixed(2);
+    const [bahtStr, satangStr] = fixed.split('.');
+
+    let bahtRes = '';
+    if (parseInt(bahtStr, 10) === 0) {
+      bahtRes = 'ศูนย์';
+    } else {
+      let b = bahtStr;
+      let millionCount = 0;
+      while (b.length > 0) {
+        const chunk = b.slice(-6);
+        b = b.slice(0, -6);
+        const groupText = convertGroup(chunk);
+        if (groupText) {
+          bahtRes = groupText + (millionCount > 0 ? 'ล้าน'.repeat(millionCount) : '') + bahtRes;
+        }
+        millionCount++;
+      }
+    }
+
+    let satangRes = '';
+    const satangVal = parseInt(satangStr, 10);
+    if (satangVal > 0) {
+      satangRes = convertGroup(satangStr) + 'สตางค์';
+    } else {
+      satangRes = 'ถ้วน';
+    }
+
+    return (isNegative ? 'ลบ' : '') + (bahtRes === 'ศูนย์' && satangVal > 0 ? '' : bahtRes + 'บาท') + satangRes;
   };
 
   // Dynamic eye-friendly color themes based on isDark prop
@@ -1135,6 +1209,8 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                 <th className="py-2.5 px-3 text-right text-slate-800 dark:text-gray-300 font-bold">ค่าจ้างมูลฐาน</th>
                 <th className="py-2.5 px-3 text-right text-amber-653 dark:text-[#D4AF37] font-bold">ยอดสะสม OT</th>
                 <th className="py-2.5 px-3 text-right text-indigo-500 dark:text-indigo-400 font-bold">เบี้ยเลี้ยง (Perdiem)</th>
+                <th className="py-2.5 px-3 text-right text-orange-500 dark:text-orange-400 font-bold">Confine Space</th>
+                <th className="py-2.5 px-3 text-right text-teal-500 dark:text-teal-400 font-bold">Incentive</th>
                 <th className="py-2.5 px-3 text-center font-bold text-amber-600 dark:text-amber-400">Other Income (กรอกเอง)</th>
                 <th className="py-2.5 px-3 text-right font-extrabold text-teal-600 dark:text-teal-400 bg-teal-500/5 dark:bg-teal-500/10 border-x border-slate-200/50 dark:border-white/15">รายได้รวม</th>
                 <th className="py-2.5 px-3 text-center font-bold text-red-500">Deduction (กรอกเอง)</th>
@@ -1172,6 +1248,16 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                     {/* Perdiem (เบี้ยเลี้ยงสะสม) */}
                     <td className="py-2 px-3 text-right font-mono font-bold text-indigo-600 dark:text-indigo-400">
                       {p.totalPerdiem.toLocaleString()}
+                    </td>
+
+                    {/* Confine Space */}
+                    <td className="py-2 px-3 text-right font-mono font-semibold text-orange-600 dark:text-orange-400">
+                      {(p.totalConfineSpace || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+
+                    {/* Incentive */}
+                    <td className="py-2 px-3 text-right font-mono font-semibold text-teal-600 dark:text-teal-400">
+                      {(p.totalIncentive || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
 
                     {/* Other Income (กรอกเอง) */}
@@ -1284,7 +1370,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                 ))
               ) : (
                 <tr>
-                  <td colSpan={13} className="text-center py-6 text-gray-500">
+                  <td colSpan={17} className="text-center py-6 text-gray-500">
                     ไม่พบข้อมูลผู้ปฏิบัติงานมียอดจัดรอบ หรือข้อมูลประวัติ ณ ขณะนี้
                   </td>
                 </tr>
@@ -1297,6 +1383,8 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                   <td className="py-2.5 px-3 text-right text-slate-800 dark:text-gray-100">{totals.normalPay.toLocaleString()}</td>
                   <td className="py-2.5 px-3 text-right text-amber-653 dark:text-[#D4AF37]">{(totals.ot15 + totals.ot20 + totals.ot30).toLocaleString()}</td>
                   <td className="py-2.5 px-3 text-right text-indigo-600 dark:text-indigo-400">{totals.perdiem.toLocaleString()}</td>
+                  <td className="py-2.5 px-3 text-right text-orange-600 dark:text-orange-400">{(totals.confineSpace || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  <td className="py-2.5 px-3 text-right text-teal-600 dark:text-teal-400">{(totals.incentive || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                   <td className="py-2.5 px-3 text-right text-slate-705 dark:text-gray-305">{totals.allowance.toLocaleString()}</td>
                   <td className="py-2.5 px-3 text-right text-teal-600 dark:text-teal-400 bg-teal-500/5 dark:bg-teal-500/10 border-x border-slate-200/50 dark:border-white/15 font-extrabold">{totals.gross.toLocaleString()} ฿</td>
                   <td className="py-2.5 px-3 text-right text-red-500 dark:text-red-400">{totals.otherDeduction.toLocaleString()}</td>
@@ -1590,56 +1678,52 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                   <div className="bg-gray-100 p-1.5 font-bold text-center border-b border-gray-400">รายการรายรับได้รับ (Earnings)</div>
                   <div className="p-1 px-3 flex justify-between">
                     <span>เงินค่าจ้างมูลฐานสะสม</span>
-                    <strong>{activeSlip.baseNormalPay.toLocaleString()}</strong>
+                    <strong>{formatSlipNumber(activeSlip.baseNormalPay)}</strong>
                   </div>
                   <div className="p-1 px-3 flex justify-between text-indigo-900 bg-indigo-50/20">
                     <span className="font-semibold">ค่าทำงานล่วงเวลาและทำงานในวันหยุด</span>
-                    <strong>{(activeSlip.ot15Wage + activeSlip.ot20Wage + activeSlip.ot30Wage).toLocaleString()}</strong>
+                    <strong>{formatSlipNumber(activeSlip.ot15Wage + activeSlip.ot20Wage + activeSlip.ot30Wage)}</strong>
                   </div>
                   <div className="p-1 px-3 flex justify-between">
                     <span>ค่าล่วงเวลาสะสม (OT 1.5)</span>
-                    <strong>{activeSlip.ot15Wage.toLocaleString()}</strong>
+                    <strong>{formatSlipNumber(activeSlip.ot15Wage)}</strong>
                   </div>
                   <div className="p-1 px-3 flex justify-between">
                     <span>ค่าทำงานวันหยุด</span>
-                    <strong>{activeSlip.ot20Wage.toLocaleString()}</strong>
+                    <strong>{formatSlipNumber(activeSlip.ot20Wage)}</strong>
                   </div>
                   <div className="p-1 px-3 flex justify-between">
                     <span>ค่าล่วงเวลาวันหยุด</span>
-                    <strong>{activeSlip.ot30Wage.toLocaleString()}</strong>
+                    <strong>{formatSlipNumber(activeSlip.ot30Wage)}</strong>
                   </div>
                   {activeSlip.transportAllowance > 0 && (
                     <div className="p-1 px-3 flex justify-between">
                       <span>ค่าเดินทาง / รถส่วนบุคคล</span>
-                      <strong>{activeSlip.transportAllowance.toLocaleString()}</strong>
+                      <strong>{formatSlipNumber(activeSlip.transportAllowance)}</strong>
                     </div>
                   )}
                   <div className="p-1 px-3 flex justify-between bg-amber-50/50">
                     <span className="font-semibold text-amber-900">รายรับอื่น (กรอกเอง) / Other Income</span>
-                    <strong>{activeSlip.manualOtherIncome.toLocaleString()}</strong>
+                    <strong>{formatSlipNumber(activeSlip.manualOtherIncome)}</strong>
                   </div>
                   {activeSlip.totalPerdiem > 0 && (
                     <div className="p-1 px-3 flex justify-between text-indigo-700">
                       <span>ค่าเบี้ยเลี้ยงสะสม / Perdiem</span>
-                      <strong>{activeSlip.totalPerdiem.toLocaleString()}</strong>
+                      <strong>{formatSlipNumber(activeSlip.totalPerdiem)}</strong>
                     </div>
                   )}
-                  {activeSlip.totalConfineSpace > 0 && (
-                    <div className="p-1 px-3 flex justify-between text-orange-700">
-                      <span>ค่าพื้นที่อับอากาศ / Confine Space</span>
-                      <strong>{activeSlip.totalConfineSpace.toLocaleString()}</strong>
-                    </div>
-                  )}
-                  {activeSlip.totalIncentive > 0 && (
-                    <div className="p-1 px-3 flex justify-between text-emerald-700">
-                      <span>เบี้ยขยันพนักงาน / Incentive</span>
-                      <strong>{activeSlip.totalIncentive.toLocaleString()}</strong>
-                    </div>
-                  )}
+                  <div className="p-1 px-3 flex justify-between text-orange-700">
+                    <span>ค่าพื้นที่อับอากาศ / Confine Space</span>
+                    <strong>{formatSlipNumber(activeSlip.totalConfineSpace || 0)}</strong>
+                  </div>
+                  <div className="p-1 px-3 flex justify-between text-emerald-700">
+                    <span>เบี้ยขยันพนักงาน / Incentive</span>
+                    <strong>{formatSlipNumber(activeSlip.totalIncentive || 0)}</strong>
+                  </div>
 
                   <div className="p-1.5 bg-gray-150 text-right font-extrabold border-t border-gray-450 flex justify-between">
                     <span>รายได้รวม (Gross)</span>
-                    <span>{activeSlip.totalIncome.toLocaleString()} ฿</span>
+                    <span>{formatSlipNumber(activeSlip.totalIncome)} ฿</span>
                   </div>
                 </div>
 
@@ -1648,16 +1732,16 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                   <div className="bg-gray-100 p-1.5 font-bold text-center border-b border-gray-400">รายการหักลบ ณ จ่าย (Deductions)</div>
                   <div className="p-1 px-3 flex justify-between">
                     <span>ภาษี</span>
-                    <strong>{activeSlip.tax.toLocaleString()}</strong>
+                    <strong>{formatSlipNumber(activeSlip.tax)}</strong>
                   </div>
                   <div className="p-1 px-3 flex justify-between">
                     <span>เงินสมทบกองประกันสังคม</span>
-                    <strong>{activeSlip.sso.toLocaleString()}</strong>
+                    <strong>{formatSlipNumber(activeSlip.sso)}</strong>
                   </div>
                   {activeSlip.studentLoan > 0 ? (
                     <div className="p-1 px-3 flex justify-between">
                       <span>หักลบหนี้ กยศ. สังกัดรัฐ</span>
-                      <strong>{activeSlip.studentLoan.toLocaleString()}</strong>
+                      <strong>{formatSlipNumber(activeSlip.studentLoan)}</strong>
                     </div>
                   ) : (
                     <div className="p-1 px-3 flex justify-between text-gray-400">
@@ -1667,7 +1751,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                   )}
                   <div className="p-1 px-3 flex justify-between bg-red-50/30">
                     <span>เงินหักอื่น / Other Deduction</span>
-                    <strong>{activeSlip.otherDeduction.toLocaleString()}</strong>
+                    <strong>{formatSlipNumber(activeSlip.otherDeduction)}</strong>
                   </div>
 
                   <div className="p-1 px-3 flex justify-between text-gray-400">
@@ -1680,7 +1764,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                   </div>
                   <div className="p-1.5 bg-gray-150 text-right font-extrabold border-t border-gray-450 flex justify-between">
                     <span>รวมรายการหัก (Deduction)</span>
-                    <span>{activeSlip.totalDeductions.toLocaleString()} ฿</span>
+                    <span>{formatSlipNumber(activeSlip.totalDeductions)} ฿</span>
                   </div>
                 </div>
               </div>
@@ -1688,7 +1772,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
               {/* Net Earnings visual Slate */}
               <div className="bg-gray-100 p-4 border border-black rounded flex flex-col md:flex-row justify-between items-center text-xs font-mono font-bold">
                 <div className="text-gray-700">ตัวอักษรรวมจ่ายสุทธิ: <span className="font-sans text-black font-extrabold">{thaiBahtText(activeSlip.netIncome)}</span></div>
-                <div className="text-md font-extrabold text-black font-sans mt-1 md:mt-0">ยอดโอนสุทธิโอนเข้าบัญชีพนักงาน: <span className="underline underline-offset-4 text-base font-extrabold text-emerald-600">{activeSlip.netIncome.toLocaleString()} บาท</span></div>
+                <div className="text-md font-extrabold text-black font-sans mt-1 md:mt-0">ยอดโอนสุทธิโอนเข้าบัญชีพนักงาน: <span className="underline underline-offset-4 text-base font-extrabold text-emerald-600">{formatSlipNumber(activeSlip.netIncome)} บาท</span></div>
               </div>
 
               {/* Signature Blocks matching standard official slip outputs */}
@@ -1912,56 +1996,52 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                     <div className="bg-gray-100 p-1.5 font-bold text-center border-b border-gray-400 text-black">รายการรายรับได้รับ (Earnings)</div>
                     <div className="p-1 px-3 flex justify-between text-black">
                       <span>เงินค่าจ้างมูลฐานสะสม</span>
-                      <strong>{empSlip.baseNormalPay.toLocaleString()}</strong>
+                      <strong>{formatSlipNumber(empSlip.baseNormalPay)}</strong>
                     </div>
                     <div className="p-1 px-3 flex justify-between text-indigo-900 bg-indigo-50/20 font-sans">
                       <span className="font-semibold">ค่าทำงานล่วงเวลาและทำงานในวันหยุด</span>
-                      <strong>{(empSlip.ot15Wage + empSlip.ot20Wage + empSlip.ot30Wage).toLocaleString()}</strong>
+                      <strong>{formatSlipNumber(empSlip.ot15Wage + empSlip.ot20Wage + empSlip.ot30Wage)}</strong>
                     </div>
                     <div className="p-1 px-3 flex justify-between text-black">
                       <span>ค่าล่วงเวลาสะสม (OT 1.5)</span>
-                      <strong>{empSlip.ot15Wage.toLocaleString()}</strong>
+                      <strong>{formatSlipNumber(empSlip.ot15Wage)}</strong>
                     </div>
                     <div className="p-1 px-3 flex justify-between text-black">
                       <span>ค่าทำงานวันหยุด</span>
-                      <strong>{empSlip.ot20Wage.toLocaleString()}</strong>
+                      <strong>{formatSlipNumber(empSlip.ot20Wage)}</strong>
                     </div>
                     <div className="p-1 px-3 flex justify-between text-black">
                       <span>ค่าล่วงเวลาวันหยุด</span>
-                      <strong>{empSlip.ot30Wage.toLocaleString()}</strong>
+                      <strong>{formatSlipNumber(empSlip.ot30Wage)}</strong>
                     </div>
                     {empSlip.transportAllowance > 0 && (
                       <div className="p-1 px-3 flex justify-between text-black">
                         <span>ค่าเดินทาง / รถส่วนบุคคล</span>
-                        <strong>{empSlip.transportAllowance.toLocaleString()}</strong>
+                        <strong>{formatSlipNumber(empSlip.transportAllowance)}</strong>
                       </div>
                     )}
                     <div className="p-1 px-3 flex justify-between bg-amber-50/50 text-black">
                       <span className="font-semibold text-amber-900">รายรับอื่น (กรอกเอง) / Other Income</span>
-                      <strong>{empSlip.manualOtherIncome.toLocaleString()}</strong>
+                      <strong>{formatSlipNumber(empSlip.manualOtherIncome)}</strong>
                     </div>
                     {empSlip.totalPerdiem > 0 && (
                       <div className="p-1 px-3 flex justify-between text-black">
                         <span>ค่าเบี้ยเลี้ยงสะสม / Perdiem</span>
-                        <strong>{empSlip.totalPerdiem.toLocaleString()}</strong>
+                        <strong>{formatSlipNumber(empSlip.totalPerdiem)}</strong>
                       </div>
                     )}
-                    {empSlip.totalConfineSpace > 0 && (
-                      <div className="p-1 px-3 flex justify-between text-black">
-                        <span>ค่าพื้นที่อับอากาศ / Confine Space</span>
-                        <strong>{empSlip.totalConfineSpace.toLocaleString()}</strong>
-                      </div>
-                    )}
-                    {empSlip.totalIncentive > 0 && (
-                      <div className="p-1 px-3 flex justify-between text-black">
-                        <span>เบี้ยขยันพนักงาน / Incentive</span>
-                        <strong>{empSlip.totalIncentive.toLocaleString()}</strong>
-                      </div>
-                    )}
+                    <div className="p-1 px-3 flex justify-between text-black">
+                      <span>ค่าพื้นที่อับอากาศ / Confine Space</span>
+                      <strong>{formatSlipNumber(empSlip.totalConfineSpace || 0)}</strong>
+                    </div>
+                    <div className="p-1 px-3 flex justify-between text-black">
+                      <span>เบี้ยขยันพนักงาน / Incentive</span>
+                      <strong>{formatSlipNumber(empSlip.totalIncentive || 0)}</strong>
+                    </div>
 
                     <div className="p-1.5 bg-gray-150 text-right font-extrabold border-t border-gray-450 flex justify-between text-black mt-auto">
                       <span>รายได้รวม (Gross)</span>
-                      <span>{empSlip.totalIncome.toLocaleString()} ฿</span>
+                      <span>{formatSlipNumber(empSlip.totalIncome)} ฿</span>
                     </div>
                   </div>
 
@@ -1970,16 +2050,16 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                     <div className="bg-gray-100 p-1.5 font-bold text-center border-b border-gray-400 text-black">รายการหักลบ ณ จ่าย (Deductions)</div>
                     <div className="p-1 px-3 flex justify-between text-black">
                       <span>ภาษี</span>
-                      <strong>{empSlip.tax.toLocaleString()}</strong>
+                      <strong>{formatSlipNumber(empSlip.tax)}</strong>
                     </div>
                     <div className="p-1 px-3 flex justify-between text-black">
                       <span>เงินสมทบกองประกันสังคม</span>
-                      <strong>{empSlip.sso.toLocaleString()}</strong>
+                      <strong>{formatSlipNumber(empSlip.sso)}</strong>
                     </div>
                     {empSlip.studentLoan > 0 ? (
                       <div className="p-1 px-3 flex justify-between text-black">
                         <span>หักลบหนี้ กยศ. สังกัดรัฐ</span>
-                        <strong>{empSlip.studentLoan.toLocaleString()}</strong>
+                        <strong>{formatSlipNumber(empSlip.studentLoan)}</strong>
                       </div>
                     ) : (
                       <div className="p-1 px-3 flex justify-between text-gray-400">
@@ -1989,7 +2069,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                     )}
                     <div className="p-1 px-3 flex justify-between bg-red-50/30 text-black">
                       <span>เงินหักอื่น / Other Deduction</span>
-                      <strong>{empSlip.otherDeduction.toLocaleString()}</strong>
+                      <strong>{formatSlipNumber(empSlip.otherDeduction)}</strong>
                     </div>
 
                     <div className="p-1 px-3 flex justify-between text-gray-400">
@@ -2002,7 +2082,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                     </div>
                     <div className="p-1.5 bg-gray-150 text-right font-extrabold border-t border-gray-450 flex justify-between text-black mt-auto">
                       <span>รวมรายการหัก (Deduction)</span>
-                      <span>{empSlip.totalDeductions.toLocaleString()} ฿</span>
+                      <span>{formatSlipNumber(empSlip.totalDeductions)} ฿</span>
                     </div>
                   </div>
                 </div>
@@ -2010,7 +2090,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                 {/* Net Earnings visual Slate */}
                 <div className="bg-gray-100 p-4 border border-black rounded flex flex-col md:flex-row justify-between items-center text-xs font-mono font-bold mt-6">
                   <div className="text-gray-750">ตัวอักษรรวมจ่ายสุทธิ: <span className="font-sans text-black font-extrabold">{thaiBahtText(empSlip.netIncome)}</span></div>
-                  <div className="text-md font-extrabold text-black font-sans mt-1 md:mt-0">ยอดโอนสุทธิโอนเข้าบัญชีพนักงาน: <span className="underline underline-offset-4 text-base font-extrabold text-emerald-600">{empSlip.netIncome.toLocaleString()} บาท</span></div>
+                  <div className="text-md font-extrabold text-black font-sans mt-1 md:mt-0">ยอดโอนสุทธิโอนเข้าบัญชีพนักงาน: <span className="underline underline-offset-4 text-base font-extrabold text-emerald-600">{formatSlipNumber(empSlip.netIncome)} บาท</span></div>
                 </div>
 
                 {/* Signature Blocks */}
@@ -2106,6 +2186,8 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                       <th className="p-2 border border-slate-400 text-right text-black">ค่าจ้างมูลฐาน</th>
                       <th className="p-2 border border-slate-400 text-right text-black">สะสม OT</th>
                       <th className="p-2 border border-slate-400 text-right text-black">เบี้ยเลี้ยง (Perdiem)</th>
+                      <th className="p-2 border border-slate-400 text-right text-black">Confine Space</th>
+                      <th className="p-2 border border-slate-400 text-right text-black">Incentive</th>
                       <th className="p-2 border border-slate-400 text-right text-black">เงินเพิ่มพิเศษ</th>
                       <th className="p-2 border border-slate-400 text-right text-black font-extrabold bg-slate-50">รายได้รวม</th>
                       <th className="p-2 border border-slate-400 text-right text-black">เงินหักอื่น ๆ</th>
@@ -2122,16 +2204,18 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                         <td className="p-2 border border-slate-300 font-bold text-black">{p.name}</td>
                         <td className="p-2 border border-slate-300 text-center">{p.scheduleType}</td>
                         <td className="p-2 border border-slate-300 text-center font-mono">{p.daysWorked} วัน</td>
-                        <td className="p-2 border border-slate-300 text-right font-mono">{p.baseNormalPay.toLocaleString()}</td>
-                        <td className="p-2 border border-slate-300 text-right font-mono">{(p.ot15Wage + p.ot20Wage + p.ot30Wage).toLocaleString()}</td>
-                        <td className="p-2 border border-slate-300 text-right font-mono text-indigo-700">{p.totalPerdiem.toLocaleString()}</td>
-                        <td className="p-2 border border-slate-300 text-right font-mono">{p.extraAllowance.toLocaleString()}</td>
-                        <td className="p-2 border border-slate-300 text-right font-mono font-bold bg-slate-50">{p.totalIncome.toLocaleString()}</td>
-                        <td className="p-2 border border-slate-300 text-right font-mono">{p.otherDeduction.toLocaleString()}</td>
-                        <td className="p-2 border border-slate-300 text-right font-mono">{p.tax.toLocaleString()}</td>
-                        <td className="p-2 border border-slate-300 text-right font-mono">{p.sso.toLocaleString()}</td>
-                        <td className="p-2 border border-slate-300 text-right font-mono">{p.studentLoan > 0 ? p.studentLoan.toLocaleString() : '—'}</td>
-                        <td className="p-2 border border-slate-300 text-right font-mono font-bold text-emerald-800">{p.netIncome.toLocaleString()} ฿</td>
+                        <td className="p-2 border border-slate-300 text-right font-mono">{formatSlipNumber(p.baseNormalPay)}</td>
+                        <td className="p-2 border border-slate-300 text-right font-mono">{formatSlipNumber(p.ot15Wage + p.ot20Wage + p.ot30Wage)}</td>
+                        <td className="p-2 border border-slate-300 text-right font-mono text-indigo-700">{formatSlipNumber(p.totalPerdiem)}</td>
+                        <td className="p-2 border border-slate-300 text-right font-mono text-orange-700">{formatSlipNumber(p.totalConfineSpace || 0)}</td>
+                        <td className="p-2 border border-slate-300 text-right font-mono text-teal-700">{formatSlipNumber(p.totalIncentive || 0)}</td>
+                        <td className="p-2 border border-slate-300 text-right font-mono">{formatSlipNumber(p.extraAllowance)}</td>
+                        <td className="p-2 border border-slate-300 text-right font-mono font-bold bg-slate-50">{formatSlipNumber(p.totalIncome)}</td>
+                        <td className="p-2 border border-slate-300 text-right font-mono">{formatSlipNumber(p.otherDeduction)}</td>
+                        <td className="p-2 border border-slate-300 text-right font-mono">{formatSlipNumber(p.tax)}</td>
+                        <td className="p-2 border border-slate-300 text-right font-mono">{formatSlipNumber(p.sso)}</td>
+                        <td className="p-2 border border-slate-300 text-right font-mono">{p.studentLoan > 0 ? formatSlipNumber(p.studentLoan) : '—'}</td>
+                        <td className="p-2 border border-slate-300 text-right font-mono font-bold text-emerald-800">{formatSlipNumber(p.netIncome)} ฿</td>
                       </tr>
                     ))}
                     
@@ -2141,22 +2225,24 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                       <td className="p-2 border border-slate-400 text-center font-mono text-black">
                         {filteredPayroll.reduce((sum, item) => sum + item.daysWorked, 0)} วัน
                       </td>
-                      <td className="p-2 border border-slate-400 text-right font-mono text-black">{totals.normalPay.toLocaleString()}</td>
-                      <td className="p-2 border border-slate-400 text-right font-mono text-black">{(totals.ot15 + totals.ot20 + totals.ot30).toLocaleString()}</td>
-                      <td className="p-2 border border-slate-400 text-right font-mono text-indigo-700">{totals.perdiem.toLocaleString()}</td>
+                      <td className="p-2 border border-slate-400 text-right font-mono text-black">{formatSlipNumber(totals.normalPay)}</td>
+                      <td className="p-2 border border-slate-400 text-right font-mono text-black">{formatSlipNumber(totals.ot15 + totals.ot20 + totals.ot30)}</td>
+                      <td className="p-2 border border-slate-400 text-right font-mono text-indigo-700">{formatSlipNumber(totals.perdiem)}</td>
+                      <td className="p-2 border border-slate-400 text-right font-mono text-orange-700">{formatSlipNumber(totals.confineSpace || 0)}</td>
+                      <td className="p-2 border border-slate-400 text-right font-mono text-teal-700">{formatSlipNumber(totals.incentive || 0)}</td>
                       <td className="p-2 border border-slate-400 text-right font-mono text-black">
-                        {filteredPayroll.reduce((sum, item) => sum + item.extraAllowance, 0).toLocaleString()}
+                        {formatSlipNumber(filteredPayroll.reduce((sum, item) => sum + item.extraAllowance, 0))}
                       </td>
                       <td className="p-2 border border-slate-400 text-right font-mono text-black font-extrabold bg-slate-100">
-                        {totals.gross.toLocaleString()}
+                        {formatSlipNumber(totals.gross)}
                       </td>
                       <td className="p-2 border border-slate-400 text-right font-mono text-black">
-                        {filteredPayroll.reduce((sum, item) => sum + item.otherDeduction, 0).toLocaleString()}
+                        {formatSlipNumber(filteredPayroll.reduce((sum, item) => sum + item.otherDeduction, 0))}
                       </td>
-                      <td className="p-2 border border-slate-400 text-right font-mono text-black">{totals.tax.toLocaleString()}</td>
-                      <td className="p-2 border border-slate-400 text-right font-mono text-black">{totals.sso.toLocaleString()}</td>
-                      <td className="p-2 border border-slate-400 text-right font-mono text-black">{totals.studentLoan.toLocaleString()}</td>
-                      <td className="p-2 border border-slate-400 text-right font-mono text-emerald-750 font-black text-black">{totals.net.toLocaleString()} ฿</td>
+                      <td className="p-2 border border-slate-400 text-right font-mono text-black">{formatSlipNumber(totals.tax)}</td>
+                      <td className="p-2 border border-slate-400 text-right font-mono text-black">{formatSlipNumber(totals.sso)}</td>
+                      <td className="p-2 border border-slate-400 text-right font-mono text-black">{formatSlipNumber(totals.studentLoan)}</td>
+                      <td className="p-2 border border-slate-400 text-right font-mono text-emerald-750 font-black text-black">{formatSlipNumber(totals.net)} ฿</td>
                     </tr>
                   </tbody>
                 </table>
