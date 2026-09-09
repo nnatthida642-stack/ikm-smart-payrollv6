@@ -242,8 +242,8 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
         const isOffshore = proj.includes('offshore');
         normalHoursCount += ent.normalHours;
         
-        // Zero out OT if project is Offshore
-        const dOt15 = isOffshore ? 0 : ent.ot15Hours;
+        // For Offshore, OT hours are in ot15Hours, ot20 and ot30 are 0
+        const dOt15 = ent.ot15Hours;
         const dOt20 = isOffshore ? 0 : ent.ot20Hours;
         const dOt30 = isOffshore ? 0 : ent.ot30Hours;
 
@@ -274,7 +274,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
         transportAllowanceTotal = 0;
 
 
-        // OT Wages for staff, zeroing out any offshore project OT
+        // OT Wages for staff
         let runningOt15Pay = 0;
         let runningOt20Pay = 0;
         let runningOt30Pay = 0;
@@ -282,7 +282,12 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
         empEntries.forEach(ent => {
           const proj = (ent.project || '').toLowerCase();
           const isOffshore = proj.includes('offshore');
-          if (!isOffshore) {
+          if (isOffshore) {
+            // Offshore OT divided by 11: (dayRate / 11) * OT
+            const offshoreDayRate = emp.offshoreRate || ((emp.officeSalary || emp.staffSalary || 0) / 30);
+            const offshoreHourly = offshoreDayRate / 11;
+            runningOt15Pay += ent.ot15Hours * offshoreHourly;
+          } else {
             runningOt15Pay += ent.ot15Hours * hourlyRate * settings.ot15Rate;
             // Monthly staff gets 1.0x for holiday normal hours under Thai Labor Law, since monthly salary already covers 1.0x
             runningOt20Pay += ent.ot20Hours * hourlyRate * 1.0;
@@ -319,10 +324,14 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
             dayRate = emp.wfhRate || 0;
           }
 
-          dailyWorkerSum += dayRate * (ent.normalHours / settings.defaultWorkHours);
-
-          // If NOT offshore, calculate day-specific OT based on that day's rate
-          if (!isOffshore) {
+          if (isOffshore) {
+            // Offshore: 11 working hours is the normal shift = full dayRate
+            dailyWorkerSum += dayRate * (ent.normalHours / 11);
+            // Offshore OT: divided by 11 (ไม่ใช่หาร 8) e.g. (2500 / 11) * 3(Hr for OT)
+            const offshoreHourlyRate = dayRate / 11;
+            runningOt15Pay += ent.ot15Hours * offshoreHourlyRate;
+          } else {
+            dailyWorkerSum += dayRate * (ent.normalHours / settings.defaultWorkHours);
             const dayHourlyRate = dayRate / settings.defaultWorkHours;
             runningOt15Pay += ent.ot15Hours * dayHourlyRate * settings.ot15Rate;
             runningOt20Pay += ent.ot20Hours * dayHourlyRate * settings.ot20Rate;
@@ -558,14 +567,25 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
         ? ((emp.officeSalary || emp.staffSalary || 0) / 30 / settings.defaultWorkHours)
         : (baseRate / settings.defaultWorkHours);
       
-      // Calculate daily OT cash
-      // Offshore projects have absolutely zero OT
-      const otEarnings = isOffshore ? 0 : 
-                         ((ent.ot15Hours * hourlyBase * settings.ot15Rate) + 
-                          (ent.ot20Hours * hourlyBase * ot20RateActual) + 
-                          (ent.ot30Hours * hourlyBase * settings.ot30Rate));
+      // Calculate daily OT cash & normal wage
+      let otEarnings = 0;
+      let normalWage = 0;
 
-      const normalWage = (ent.normalHours / settings.defaultWorkHours) * baseRate;
+      if (isOffshore) {
+        const offshoreDayRate = (isStaff && !emp.offshoreRate)
+          ? ((emp.officeSalary || emp.staffSalary || 0) / 30)
+          : baseRate;
+        const offshoreHourly = offshoreDayRate / 11;
+        otEarnings = ent.ot15Hours * offshoreHourly;
+        normalWage = isStaff
+          ? ((emp.officeSalary || emp.staffSalary || 0) / 30)
+          : ((ent.normalHours / 11) * baseRate);
+      } else {
+        otEarnings = ((ent.ot15Hours * hourlyBase * settings.ot15Rate) + 
+                      (ent.ot20Hours * hourlyBase * ot20RateActual) + 
+                      (ent.ot30Hours * hourlyBase * settings.ot30Rate));
+        normalWage = (ent.normalHours / settings.defaultWorkHours) * baseRate;
+      }
 
       const rowKey = ent.id ? `${emp.id}_${ent.date}_${ent.id}` : `${emp.id}_${ent.date}`;
       const supp = supplements[rowKey] || supplements[`${emp.id}_${ent.date}`] || { perdiem: undefined, advance: 0, jobBonus: 0, confineSpace: 0, incentive: 0, remarkOverride: '' };
@@ -590,7 +610,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
         normalWage,
         lunchOT: ent.lunchOT ? 1 : 0,
         normalHours: ent.normalHours,
-        ot15Hours: isOffshore ? 0 : ent.ot15Hours,
+        ot15Hours: ent.ot15Hours,
         ot20Hours: isOffshore ? 0 : ent.ot20Hours,
         ot30Hours: isOffshore ? 0 : ent.ot30Hours,
         remark: supp.remarkOverride || ent.remark || '',
@@ -738,13 +758,29 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
         else if (proj.includes('wfh')) baseRate = emp.wfhRate || 0;
 
         const isStaff = emp.workScheduleType === 'staff' || emp.workScheduleType === 'monthly_worker';
+        const isOffshore = proj.includes('offshore');
         const ot20RateActual = isStaff ? 1.0 : settings.ot20Rate;
 
-        const hourlyBase = isStaff 
-          ? ((emp.officeSalary || emp.staffSalary || 0) / 30 / settings.defaultWorkHours)
-          : (baseRate / settings.defaultWorkHours);
-        const otEarnings = (ent.ot15Hours * hourlyBase * settings.ot15Rate) + (ent.ot20Hours * hourlyBase * ot20RateActual) + (ent.ot30Hours * hourlyBase * settings.ot30Rate);
-        const dayTotal = baseRate + otEarnings;
+        let otEarnings = 0;
+        let dayTotal = 0;
+
+        if (isOffshore) {
+          const offshoreDayRate = (isStaff && !emp.offshoreRate)
+            ? ((emp.officeSalary || emp.staffSalary || 0) / 30)
+            : baseRate;
+          const offshoreHourly = offshoreDayRate / 11;
+          otEarnings = ent.ot15Hours * offshoreHourly;
+          const normalWage = isStaff
+            ? ((emp.officeSalary || emp.staffSalary || 0) / 30)
+            : ((ent.normalHours / 11) * baseRate);
+          dayTotal = normalWage + otEarnings;
+        } else {
+          const hourlyBase = isStaff 
+            ? ((emp.officeSalary || emp.staffSalary || 0) / 30 / settings.defaultWorkHours)
+            : (baseRate / settings.defaultWorkHours);
+          otEarnings = (ent.ot15Hours * hourlyBase * settings.ot15Rate) + (ent.ot20Hours * hourlyBase * ot20RateActual) + (ent.ot30Hours * hourlyBase * settings.ot30Rate);
+          dayTotal = baseRate + otEarnings;
+        }
 
         ratePayloads.push({
           ID: stringToUUID(`${emp.id}-${ent.date}-${ent.id || index}`),

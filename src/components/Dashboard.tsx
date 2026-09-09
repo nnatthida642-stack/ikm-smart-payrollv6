@@ -335,7 +335,7 @@ export default function Dashboard({ entries, employees, holidays, isDark = true 
       const isOffshore = proj.includes('offshore');
       
       totalNormal += e.normalHours;
-      totalOT15 += isOffshore ? 0 : e.ot15Hours;
+      totalOT15 += e.ot15Hours;
       totalOT20 += isOffshore ? 0 : e.ot20Hours;
       totalOT30 += isOffshore ? 0 : e.ot30Hours;
     });

@@ -598,9 +598,18 @@ export default function IndividualReport({
         empHourlyRate = localDayRate / workHours;
       }
 
-      const ot20RateActual = isStaff ? 1.0 : (settings?.ot20Rate || 2.0);
-      const normalPay = normHrs * empHourlyRate;
-      const otPay = isOffshore ? 0 : (itemOt15 * 1.5 + itemOt20 * ot20RateActual + itemOt30 * 3.0) * empHourlyRate;
+      let normalPay = 0;
+      let otPay = 0;
+
+      if (isOffshore) {
+        const offshoreHourly = localDayRate / 11;
+        normalPay = isStaff ? ((emp.officeSalary || emp.staffSalary || 0) / 30) : ((normHrs / 11) * localDayRate);
+        otPay = itemOt15 * offshoreHourly;
+      } else {
+        const ot20RateActual = isStaff ? 1.0 : (settings?.ot20Rate || 2.0);
+        normalPay = normHrs * empHourlyRate;
+        otPay = (itemOt15 * 1.5 + itemOt20 * ot20RateActual + itemOt30 * 3.0) * empHourlyRate;
+      }
 
       summary[projectKey].normalWage += normalPay;
       summary[projectKey].otWage += otPay;
@@ -1256,11 +1265,19 @@ export default function IndividualReport({
         localDayRate = activeEmployee?.wfhRate || 0;
       }
 
-      const localHourlyRate = isStaff ? hourlyRate : localDayRate / (settings.defaultWorkHours || 8);
+      let normalPay = 0;
+      let otPay = 0;
 
-      const ot20RateActual = isStaff ? 1.0 : (settings?.ot20Rate || 2.0);
-      const normalPay = normHrs * localHourlyRate;
-      const otPay = isOffshore ? 0 : (itemOt15 * 1.5 + itemOt20 * ot20RateActual + itemOt30 * 3.0) * localHourlyRate;
+      if (isOffshore) {
+        const offshoreHourly = localDayRate / 11;
+        normalPay = isStaff ? ((activeEmployee?.officeSalary || activeEmployee?.staffSalary || 0) / 30) : ((normHrs / 11) * localDayRate);
+        otPay = itemOt15 * offshoreHourly;
+      } else {
+        const localHourlyRate = isStaff ? hourlyRate : localDayRate / (settings.defaultWorkHours || 8);
+        const ot20RateActual = isStaff ? 1.0 : (settings?.ot20Rate || 2.0);
+        normalPay = normHrs * localHourlyRate;
+        otPay = (itemOt15 * 1.5 + itemOt20 * ot20RateActual + itemOt30 * 3.0) * localHourlyRate;
+      }
       const combinedWageOt = normalPay + otPay;
 
       const confineVal = Number(supp.confineSpace || supp.advance || 0);
@@ -1608,11 +1625,20 @@ export default function IndividualReport({
       }
 
       const isStaff = activeEmployee?.workScheduleType === 'staff' || activeEmployee?.workScheduleType === 'monthly_worker';
-      const localHourlyRate = isStaff ? hourlyRate : localDayRate / (settings.defaultWorkHours || 8);
+      
+      let normalPay = 0;
+      let otPay = 0;
 
-      const ot20RateActual = isStaff ? 1.0 : (settings?.ot20Rate || 2.0);
-      const normalPay = normHrs * localHourlyRate;
-      const otPay = isOffshore ? 0 : (itemOt15 * 1.5 + itemOt20 * ot20RateActual + itemOt30 * 3.0) * localHourlyRate;
+      if (isOffshore) {
+        const offshoreHourly = localDayRate / 11;
+        normalPay = isStaff ? ((activeEmployee?.officeSalary || activeEmployee?.staffSalary || 0) / 30) : ((normHrs / 11) * localDayRate);
+        otPay = itemOt15 * offshoreHourly;
+      } else {
+        const localHourlyRate = isStaff ? hourlyRate : localDayRate / (settings.defaultWorkHours || 8);
+        const ot20RateActual = isStaff ? 1.0 : (settings?.ot20Rate || 2.0);
+        normalPay = normHrs * localHourlyRate;
+        otPay = (itemOt15 * 1.5 + itemOt20 * ot20RateActual + itemOt30 * 3.0) * localHourlyRate;
+      }
       const combinedWageOt = normalPay + otPay;
 
       const confineVal = Number(supp.confineSpace || 0);
@@ -2973,15 +2999,23 @@ ALTER TABLE public."IndividualSupplements" DISABLE ROW LEVEL SECURITY;`);
                       localDayRate = activeEmployee?.wfhRate || 0;
                     }
 
-                    const localHourlyRate = isStaff ? hourlyRate : localDayRate / (settings.defaultWorkHours || 8);
-
                     const itemOt15 = draft.ot15Hours || 0;
                     const itemOt20 = draft.ot20Hours || 0;
                     const itemOt30 = draft.ot30Hours || 0;
-                    const ot20RateActual = isStaff ? 1.0 : (settings?.ot20Rate || 2.0);
-                    const otPay = isOffshore ? 0 : (itemOt15 * 1.5 + itemOt20 * ot20RateActual + itemOt30 * 3.0) * localHourlyRate;
-                    
-                    const normalPay = (draft.normalHours || 0) * localHourlyRate;
+
+                    let normalPay = 0;
+                    let otPay = 0;
+
+                    if (isOffshore) {
+                      const offshoreHourly = localDayRate / 11;
+                      normalPay = isStaff ? ((activeEmployee?.officeSalary || activeEmployee?.staffSalary || 0) / 30) : (((draft.normalHours || 0) / 11) * localDayRate);
+                      otPay = itemOt15 * offshoreHourly;
+                    } else {
+                      const localHourlyRate = isStaff ? hourlyRate : localDayRate / (settings.defaultWorkHours || 8);
+                      const ot20RateActual = isStaff ? 1.0 : (settings?.ot20Rate || 2.0);
+                      normalPay = (draft.normalHours || 0) * localHourlyRate;
+                      otPay = (itemOt15 * 1.5 + itemOt20 * ot20RateActual + itemOt30 * 3.0) * localHourlyRate;
+                    }
                     const combWageOt = normalPay + otPay;
 
                     const confineVal = Number(supp.confineSpace || 0);

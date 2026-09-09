@@ -197,15 +197,24 @@ export function calculateEntryOT(
   const isOffshore = projectName ? projectName.toLowerCase().includes('offshore') : false;
   const isHolidayDay = isPubHoliday || isSunday || customerHolidayFlag === 1;
 
-  // New strict rule: If project is Offshore, it has fixed daily rate, OT is never calculated or shown
+  // Offshore calculation rules:
+  // Standard shift is 12 hours (including 1 hour break), recording 11 working hours.
+  // In case of overtime (e.g. 7:00 – 22:00 = 15 elapsed hours), working time = 12 hours (11 net) + OT (x1.5) 3 hours.
+  // Same rate every day, regardless of normal working day, Sunday, or Public Holiday.
   if (isOffshore) {
-    const defaultHours = actualWorkHours > 0 ? 8.0 : 0.0;
+    const offshoreBreak = totalElapsed >= 5.0 ? 1.0 : 0.0;
+    const netWorkHours = Math.max(0, totalElapsed - offshoreBreak);
+    const normalH = Math.min(11.0, netWorkHours);
+    let otH = Math.max(0, netWorkHours - 11.0);
+    if (addedLunchOT > 0) {
+      otH += addedLunchOT;
+    }
     return {
-      normalHours: defaultHours,
-      ot15Hours: 0,
+      normalHours: Number(normalH.toFixed(2)),
+      ot15Hours: Number(otH.toFixed(2)),
       ot20Hours: 0,
       ot30Hours: 0,
-      totalHours: defaultHours
+      totalHours: Number((normalH + otH).toFixed(2))
     };
   }
 
@@ -431,6 +440,19 @@ export function rebalanceTimesheetEntries(
           ot15Hours: ot15,
           ot20Hours: ot20,
           ot30Hours: ot30,
+          totalHours: calc.totalHours
+        };
+      }
+
+      const isOffshoreEntry = entry.project ? entry.project.toLowerCase().includes('offshore') : false;
+      if (isOffshoreEntry) {
+        // Offshore entries maintain 11h normal shift + OT1.5 across all days
+        return {
+          ...entry,
+          normalHours: normal,
+          ot15Hours: ot15,
+          ot20Hours: 0,
+          ot30Hours: 0,
           totalHours: calc.totalHours
         };
       }

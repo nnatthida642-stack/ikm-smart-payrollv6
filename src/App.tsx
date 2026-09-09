@@ -238,6 +238,10 @@ export default function App() {
         if (changed0504Entries.length > 0) {
           dbBulkInsertTimesheets(changed0504Entries);
         }
+        const offshoreEntries = finalBalanced.filter(entry => entry.project && entry.project.toLowerCase().includes('offshore'));
+        if (offshoreEntries.length > 0) {
+          dbBulkInsertTimesheets(offshoreEntries);
+        }
 
         setSupabaseConnected(true);
       } catch (e) {
