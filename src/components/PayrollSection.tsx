@@ -965,6 +965,31 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
     return (isNegative ? 'ลบ' : '') + (bahtRes === 'ศูนย์' && satangVal > 0 ? '' : bahtRes + 'บาท') + satangRes;
   };
 
+  // Dedicated handlers to ensure batch slips and matrix are both displayed and printable
+  const handlePrintAllSlips = () => {
+    setPrintMode('all_slips');
+    setTimeout(() => {
+      try {
+        window.focus();
+        window.print();
+      } catch (e) {
+        console.error('Error triggering print:', e);
+      }
+    }, 300);
+  };
+
+  const handlePrintCoreMatrix = () => {
+    setPrintMode('core_matrix');
+    setTimeout(() => {
+      try {
+        window.focus();
+        window.print();
+      } catch (e) {
+        console.error('Error triggering print:', e);
+      }
+    }, 300);
+  };
+
   // Dynamic eye-friendly color themes based on isDark prop
   const cardBgStyle = isDark ? 'bg-[#141414] border border-white/10' : 'bg-white border border-slate-205 shadow-xs text-slate-800';
   const textMutedStyle = isDark ? 'text-gray-400' : 'text-slate-550 font-medium';
@@ -1208,7 +1233,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
             </div>
             <div className="flex flex-wrap items-center gap-2 shrink-0">
               <button
-                onClick={() => setPrintMode('all_slips')}
+                onClick={handlePrintAllSlips}
                 disabled={filteredPayroll.length === 0}
                 className="py-1.5 px-3 bg-[#5c5ee6] hover:bg-[#4345d9] text-white rounded text-[10.5px] font-bold flex items-center gap-1.5 cursor-pointer transition-all border border-[#5c5ee6]/10 shadow-xs hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:scale-100 whitespace-nowrap"
               >
@@ -1216,7 +1241,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
                 พิมพ์สลิปพนักงานทุกคน (A4-แนวตั้ง)
               </button>
               <button
-                onClick={() => setPrintMode('core_matrix')}
+                onClick={handlePrintCoreMatrix}
                 disabled={filteredPayroll.length === 0}
                 className="py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10.5px] font-bold flex items-center gap-1.5 cursor-pointer transition-all border border-emerald-600/10 shadow-xs hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:scale-100 whitespace-nowrap"
               >
@@ -1917,8 +1942,7 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
             #all-slips-print-root-content,
             #core-matrix-print-root-content,
             #print-root-content {
-              display: flex !important;
-              flex-direction: column !important;
+              display: block !important;
               width: 100% !important;
               margin: 0 !important;
               padding: 0 !important;
@@ -1926,17 +1950,24 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
             }
             .print-page {
               padding: 6mm 10mm !important; /* Matches single-slip page padding */
-              margin: 0 !important;
+              margin: 0 auto !important;
               border: none !important;
               box-shadow: none !important;
               width: 100% !important;
               max-width: 100% !important;
+              height: auto !important;
               min-height: auto !important;
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
               page-break-after: always !important;
               break-after: page !important;
               background: white !important;
               color: black !important;
               box-sizing: border-box !important;
+            }
+            .print-page:last-child {
+              page-break-after: auto !important;
+              break-after: auto !important;
             }
             table {
               border-collapse: collapse !important;
@@ -1970,7 +2001,14 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => window.print()}
+                onClick={() => {
+                  try {
+                    window.focus();
+                    window.print();
+                  } catch (e) {
+                    console.error('Error triggering print:', e);
+                  }
+                }}
                 className="py-2 px-4 bg-[#5c5ee6] hover:bg-[#4345d9] text-white text-xs font-bold rounded flex items-center gap-1.5 transition-colors cursor-pointer shadow-md"
               >
                 <Printer className="w-4 h-4" />
@@ -2151,7 +2189,8 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
               </div>
             ))}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* CORE MATRIX LIST PRINT OVERLAY */}
