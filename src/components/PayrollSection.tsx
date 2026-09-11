@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal, flushSync } from 'react-dom';
 import { Employee, TimesheetEntry, SystemSettings } from '../types';
 import { 
   CreditCard, Download, Search, Settings, Calendar, 
@@ -967,7 +967,15 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
 
   // Dedicated handlers to ensure batch slips and matrix are both displayed and printable
   const handlePrintAllSlips = () => {
-    setPrintMode('all_slips');
+    try {
+      flushSync(() => {
+        setPrintMode('all_slips');
+      });
+    } catch {
+      setPrintMode('all_slips');
+    }
+
+    // Automatically trigger browser print dialog with window.focus()
     setTimeout(() => {
       try {
         window.focus();
@@ -975,11 +983,18 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
       } catch (e) {
         console.error('Error triggering print:', e);
       }
-    }, 300);
+    }, 150);
   };
 
   const handlePrintCoreMatrix = () => {
-    setPrintMode('core_matrix');
+    try {
+      flushSync(() => {
+        setPrintMode('core_matrix');
+      });
+    } catch {
+      setPrintMode('core_matrix');
+    }
+
     setTimeout(() => {
       try {
         window.focus();
@@ -987,8 +1002,19 @@ export default function PayrollSection({ employees, entries, settings, isDark }:
       } catch (e) {
         console.error('Error triggering print:', e);
       }
-    }, 300);
+    }, 150);
   };
+
+  // Close print preview on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && printMode !== null) {
+        setPrintMode(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [printMode]);
 
   // Dynamic eye-friendly color themes based on isDark prop
   const cardBgStyle = isDark ? 'bg-[#141414] border border-white/10' : 'bg-white border border-slate-205 shadow-xs text-slate-800';
